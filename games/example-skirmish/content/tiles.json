@@ -9,7 +9,35 @@
     "id": "forest",
     "name": "Forest",
     "movementCost": 2,
+    "defenseBonus": 2,
+    "blocksLineOfSight": true
+  },
+  {
+    "id": "road",
+    "name": "Road",
+    "movementCost": 1,
+    "defenseBonus": 0,
+    "blocksLineOfSight": false
+  },
+  {
+    "id": "rubble",
+    "name": "Rubble",
+    "movementCost": 3,
     "defenseBonus": 1,
+    "blocksLineOfSight": false
+  },
+  {
+    "id": "fortified",
+    "name": "Fortified Position",
+    "movementCost": 2,
+    "defenseBonus": 4,
+    "blocksLineOfSight": false
+  },
+  {
+    "id": "cliff",
+    "name": "Cliff Face",
+    "movementCost": 99,
+    "defenseBonus": 0,
     "blocksLineOfSight": true
   }
 ]

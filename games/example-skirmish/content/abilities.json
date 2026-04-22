@@ -5,14 +5,64 @@
     "description": "Reliable medium-damage attack.",
     "damage": 30,
     "range": 3,
-    "target": "enemy"
+    "target": "enemy",
+    "cost": { "actionPoints": 1 },
+    "cooldownTurns": 0,
+    "areaOfEffect": { "pattern": "single" }
   },
   {
     "id": "aimed_shot",
     "name": "Aimed Shot",
-    "description": "High-damage long-range attack.",
-    "damage": 45,
+    "description": "High-damage long-range attack that gets stronger when wounded.",
+    "damage": 36,
     "range": 5,
-    "target": "enemy"
+    "target": "enemy",
+    "cost": { "actionPoints": 2 },
+    "cooldownTurns": 1,
+    "areaOfEffect": { "pattern": "single" },
+    "scaling": { "basedOn": "missingHealth", "ratio": 0.2, "maxBonus": 12 }
+  },
+  {
+    "id": "medic_burst",
+    "name": "Medic Burst",
+    "description": "Short-range restorative pulse.",
+    "damage": 0,
+    "range": 2,
+    "target": "ally",
+    "cost": { "actionPoints": 1 },
+    "cooldownTurns": 2,
+    "areaOfEffect": { "pattern": "cross", "radius": 1 },
+    "statusApplications": [
+      { "statusId": "regen:8", "chance": 1, "durationTurns": 2 }
+    ]
+  },
+  {
+    "id": "suppressing_fire",
+    "name": "Suppressing Fire",
+    "description": "Area control attack that can pin enemies in place.",
+    "damage": 18,
+    "range": 4,
+    "target": "enemy",
+    "cost": { "actionPoints": 2 },
+    "cooldownTurns": 2,
+    "areaOfEffect": { "pattern": "line", "radius": 2 },
+    "statusApplications": [
+      { "statusId": "dot:4", "chance": 0.8, "durationTurns": 2 }
+    ],
+    "scaling": { "basedOn": "targetMaxHealth", "ratio": 0.05, "maxBonus": 6 }
+  },
+  {
+    "id": "gravity_well",
+    "name": "Gravity Well",
+    "description": "Control skill that weakens clustered enemies.",
+    "damage": 14,
+    "range": 3,
+    "target": "enemy",
+    "cost": { "actionPoints": 2, "health": 5 },
+    "cooldownTurns": 3,
+    "areaOfEffect": { "pattern": "diamond", "radius": 2 },
+    "statusApplications": [
+      { "statusId": "dot:6", "chance": 1, "durationTurns": 1 }
+    ]
   }
 ]

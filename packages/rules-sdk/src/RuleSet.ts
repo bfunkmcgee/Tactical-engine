@@ -7,6 +7,8 @@ export type BattleState = RuleEvaluationState;
 export interface DamageResolution {
   amount: number;
   defeated: boolean;
+  appliedStatusEffectIds?: string[];
+  appliedCooldownTurns?: number;
 }
 
 export interface VictoryResult {

@@ -8,6 +8,31 @@ export interface UnitDefinition {
   abilityIds: string[];
 }
 
+export interface AbilityCost {
+  actionPoints?: number;
+  health?: number;
+}
+
+export type AreaPattern = "single" | "line" | "cross" | "diamond" | "square";
+
+export interface AreaOfEffectDefinition {
+  pattern: AreaPattern;
+  radius?: number;
+}
+
+export interface StatusApplicationDefinition {
+  statusId: string;
+  chance?: number;
+  durationTurns?: number;
+  stacks?: number;
+}
+
+export interface AbilityScalingDefinition {
+  basedOn: "missingHealth" | "currentHealth" | "targetMaxHealth";
+  ratio: number;
+  maxBonus?: number;
+}
+
 export interface AbilityDefinition {
   id: string;
   name: string;
@@ -15,6 +40,11 @@ export interface AbilityDefinition {
   damage?: number;
   range: number;
   target: "enemy" | "ally" | "self" | "tile";
+  cost?: AbilityCost;
+  cooldownTurns?: number;
+  areaOfEffect?: AreaOfEffectDefinition;
+  statusApplications?: StatusApplicationDefinition[];
+  scaling?: AbilityScalingDefinition;
   statusEffectIds?: string[];
 }
 

@@ -14,6 +14,8 @@ export interface SimulationUnit {
   readonly definitionId?: string;
   readonly health: number;
   readonly maxHealth?: number;
+  readonly actionPoints?: number;
+  readonly cooldowns?: Readonly<Record<string, number>>;
   readonly position?: Position;
   readonly statusEffectIds?: readonly string[];
 }
