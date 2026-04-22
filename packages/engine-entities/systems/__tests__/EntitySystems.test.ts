@@ -53,9 +53,11 @@ test('CombatSystem invariants: invalid AP and dead-target behavior', () => {
   assert.equal(combat.attack(store, { attackerId: 'p1', defenderId: 'p2', actionPointCost: 99 }).success, false);
 
   store.upsertComponent(STATS_COMPONENT, 'p2', { hp: 0, maxHp: 8, attack: 4, defense: 3, speed: 4 });
+  const apBeforeDeadTargetAttack = store.getComponent<{ current: number }>(ACTION_POINTS_COMPONENT, 'p1')?.current ?? 0;
   const deadTargetAttack = combat.attack(store, { attackerId: 'p1', defenderId: 'p2' });
-  assert.equal(deadTargetAttack.success, true);
-  assert.equal(deadTargetAttack.remainingHp, 0);
+  const apAfterDeadTargetAttack = store.getComponent<{ current: number }>(ACTION_POINTS_COMPONENT, 'p1')?.current ?? 0;
+  assert.deepEqual(deadTargetAttack, { success: false, damage: 0 });
+  assert.equal(apAfterDeadTargetAttack, apBeforeDeadTargetAttack);
 
   store.upsertComponent(STATS_COMPONENT, 'p2', { hp: 8, maxHp: 8, attack: 4, defense: 3, speed: 4 });
   const initialAp = store.getComponent<{ current: number }>(ACTION_POINTS_COMPONENT, 'p1')?.current ?? 0;
