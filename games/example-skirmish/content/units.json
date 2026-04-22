@@ -1,0 +1,20 @@
+[
+  {
+    "id": "infantry",
+    "name": "Infantry",
+    "factionId": "alliance",
+    "maxHealth": 100,
+    "movement": 3,
+    "attackRange": 1,
+    "abilityIds": ["rifle_shot"]
+  },
+  {
+    "id": "sniper",
+    "name": "Sniper",
+    "factionId": "alliance",
+    "maxHealth": 75,
+    "movement": 2,
+    "attackRange": 4,
+    "abilityIds": ["aimed_shot"]
+  }
+]

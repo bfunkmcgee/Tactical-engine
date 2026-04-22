@@ -1,0 +1,18 @@
+[
+  {
+    "id": "rifle_shot",
+    "name": "Rifle Shot",
+    "description": "Reliable medium-damage attack.",
+    "damage": 30,
+    "range": 3,
+    "target": "enemy"
+  },
+  {
+    "id": "aimed_shot",
+    "name": "Aimed Shot",
+    "description": "High-damage long-range attack.",
+    "damage": 45,
+    "range": 5,
+    "target": "enemy"
+  }
+]

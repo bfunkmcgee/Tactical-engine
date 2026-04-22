@@ -1,0 +1,15 @@
+[
+  {
+    "id": "plains",
+    "name": "Plains",
+    "movementCost": 1,
+    "defenseBonus": 0
+  },
+  {
+    "id": "forest",
+    "name": "Forest",
+    "movementCost": 2,
+    "defenseBonus": 1,
+    "blocksLineOfSight": true
+  }
+]
