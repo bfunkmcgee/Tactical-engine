@@ -12,6 +12,16 @@ const MAX_BUDGET_MS = 12;
 export function BoardCanvas({ viewState, entities }: BoardCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const qualityRef = useRef(1);
+  const entitiesRef = useRef(entities);
+  const viewStateRef = useRef(viewState);
+
+  useEffect(() => {
+    entitiesRef.current = entities;
+  }, [entities]);
+
+  useEffect(() => {
+    viewStateRef.current = viewState;
+  }, [viewState]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -45,9 +55,10 @@ export function BoardCanvas({ viewState, entities }: BoardCanvasProps) {
       ctx.fillStyle = '#111827';
       ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 
+      const latestViewState = viewStateRef.current;
       ctx.save();
-      ctx.translate(viewState.offsetX, viewState.offsetY);
-      ctx.scale(viewState.zoom, viewState.zoom);
+      ctx.translate(latestViewState.offsetX, latestViewState.offsetY);
+      ctx.scale(latestViewState.zoom, latestViewState.zoom);
 
       const gridSize = 56;
       ctx.strokeStyle = '#1f2937';
@@ -66,7 +77,7 @@ export function BoardCanvas({ viewState, entities }: BoardCanvasProps) {
       }
 
       const budgetStart = performance.now();
-      for (const entity of entities) {
+      for (const entity of entitiesRef.current) {
         if (performance.now() - budgetStart > MAX_BUDGET_MS) {
           break;
         }
@@ -82,7 +93,7 @@ export function BoardCanvas({ viewState, entities }: BoardCanvasProps) {
 
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [entities, viewState]);
+  }, []);
 
   return <canvas ref={canvasRef} className="board-canvas" aria-label="Tactical board" />;
 }
