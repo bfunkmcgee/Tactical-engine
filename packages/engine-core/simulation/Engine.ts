@@ -1,4 +1,5 @@
 import { ActionResolver } from './ActionResolver';
+import type { LegalActionGenerator } from './LegalActionGenerator';
 import { TurnManager } from './TurnManager';
 import { appendEvents, reduceEvents, type Action, type GameEvent, type GameState, type StateTransitionResult } from '../state/GameState';
 
@@ -33,15 +34,16 @@ export class Engine {
   private readonly turnEconomyStrategy: TurnStartStrategy;
 
   constructor(
-    actionResolver = new ActionResolver(),
+    actionResolver: ActionResolver | undefined = undefined,
     turnManager = new TurnManager(),
     movementStrategy: SimulationStrategy = NOOP_STRATEGY,
     combatStrategy: SimulationStrategy = NOOP_STRATEGY,
     statusStrategy: SimulationStrategy = NOOP_STRATEGY,
     turnEconomyStrategy: TurnStartStrategy = NOOP_TURN_START_STRATEGY,
     spatialStrategy: SimulationStrategy = NOOP_STRATEGY,
+    legalActionGenerator?: LegalActionGenerator,
   ) {
-    this.actionResolver = actionResolver;
+    this.actionResolver = actionResolver ?? new ActionResolver(legalActionGenerator);
     this.turnManager = turnManager;
     this.movementStrategy = movementStrategy;
     this.combatStrategy = combatStrategy;
