@@ -9,11 +9,26 @@ import {
 
 export class ActionResolver {
   public applyAction(state: GameState, action: Action): StateTransitionResult {
-    const legalActions = this.getLegalActions(state, action.actorId);
-    const isLegal = legalActions.some((candidate) => this.actionsMatch(candidate, action));
-
-    if (!isLegal) {
+    if (!this.validateAction(state, action)) {
       return { state, events: [] };
+    }
+
+    const events = this.resolveActionEffects(state, action);
+    const nextState = appendEvents(reduceEvents(state, events), events);
+    return {
+      state: nextState,
+      events,
+    };
+  }
+
+  public validateAction(state: GameState, action: Action): boolean {
+    const legalActions = this.getLegalActions(state, action.actorId);
+    return legalActions.some((candidate) => this.actionsMatch(candidate, action));
+  }
+
+  public resolveActionEffects(state: GameState, action: Action): GameEvent[] {
+    if (!this.validateAction(state, action)) {
+      return [];
     }
 
     const events: GameEvent[] = [
@@ -42,11 +57,7 @@ export class ActionResolver {
       }
     }
 
-    const nextState = appendEvents(reduceEvents(state, events), events);
-    return {
-      state: nextState,
-      events,
-    };
+    return events;
   }
 
   public getLegalActions(state: GameState, actorId: string): Action[] {

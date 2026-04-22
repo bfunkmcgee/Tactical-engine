@@ -1,9 +1,20 @@
-import { appendEvents, reduceEvents, type GameEvent, type GameState, type Phase } from '../state/GameState';
+import {
+  appendEvents,
+  reduceEvents,
+  type GameEvent,
+  type GameState,
+  type Phase,
+  type StateTransitionResult,
+} from '../state/GameState';
 
 const PHASE_ORDER: readonly Phase[] = ['START_TURN', 'COMMAND', 'RESOLUTION', 'END_TURN'];
 
 export class TurnManager {
   public advancePhase(state: GameState): GameState {
+    return this.advancePhaseWithEvents(state).state;
+  }
+
+  public advancePhaseWithEvents(state: GameState): StateTransitionResult {
     const nextPhase = this.getNextPhase(state.phase);
     const events: GameEvent[] = [
       {
@@ -35,7 +46,10 @@ export class TurnManager {
       nextState = reduceEvents(nextState, [turnStartEvent]);
     }
 
-    return appendEvents(nextState, events);
+    return {
+      state: appendEvents(nextState, events),
+      events,
+    };
   }
 
   public getNextPhase(current: Phase): Phase {
