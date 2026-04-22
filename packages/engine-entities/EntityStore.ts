@@ -1,8 +1,6 @@
 export type EntityId = string;
 
-export interface ComponentData {
-  [key: string]: unknown;
-}
+export type ComponentData = object;
 
 /**
  * ECS-style entity/component store that relies on stable string IDs.
