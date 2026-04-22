@@ -31,6 +31,7 @@ export interface AttackActionPayload {
   readonly targetId: UnitId;
   readonly amount?: number;
   readonly abilityId?: string;
+  readonly actionPointCost?: number;
 }
 
 export interface MoveActionPayload {
@@ -43,12 +44,16 @@ export interface UseAbilityActionPayload {
   readonly unitId: UnitId;
   readonly abilityId: string;
   readonly targetId?: UnitId;
+  readonly actionPointCost?: number;
+  readonly cooldown?: number;
 }
 
 export interface UseItemActionPayload {
   readonly unitId: UnitId;
   readonly itemId: string;
   readonly targetId?: UnitId;
+  readonly actionPointCost?: number;
+  readonly cooldown?: number;
 }
 
 export interface ApplyStatusActionPayload {
