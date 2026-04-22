@@ -113,3 +113,21 @@ test('reduceState removes duplicate status ids when applying status', () => {
 
   assert.deepEqual(next.units['u-a']?.statusEffectIds, ['burn:5', 'poison:2']);
 });
+
+test('reduceState sets hp to zero when UNIT_DEFEATED is received', () => {
+  const state = createInitialState(['A', 'B'], [
+    { id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10 },
+    { id: 'u-b', ownerId: 'B', hp: 4, maxHp: 4 },
+  ]);
+
+  const next = reduceState(state, {
+    kind: 'UNIT_DEFEATED',
+    sourceId: 'A',
+    sourceUnitId: 'u-a',
+    targetId: 'u-b',
+    turn: 1,
+    round: 1,
+  });
+
+  assert.equal(next.units['u-b']?.hp, 0);
+});

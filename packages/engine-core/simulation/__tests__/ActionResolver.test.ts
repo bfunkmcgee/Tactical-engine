@@ -77,8 +77,8 @@ test('ActionResolver emits canonical action event for valid actions', () => {
   };
 
   const result = resolver.applyAction(state, action);
-  assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED']);
-  assert.equal(result.state.units['u-b']?.hp, 8);
+  assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED', 'UNIT_DAMAGED']);
+  assert.equal(result.state.units['u-b']?.hp, 7);
   assert.equal(result.state.pendingActions.length, 1);
 });
 

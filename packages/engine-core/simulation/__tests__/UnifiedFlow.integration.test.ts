@@ -79,8 +79,8 @@ test('integration: engine + entity systems + rules sdk share one event contract'
   };
 
   const attackResult = engine.step(state, attack);
-  assert.deepEqual(attackResult.events.map((event) => event.kind), ['ACTION_APPLIED', 'UNIT_DAMAGED', 'ACTION_POINTS_CHANGED']);
-  assert.equal(attackResult.state.units['u-b']?.hp, 5);
+  assert.deepEqual(attackResult.events.map((event) => event.kind), ['ACTION_APPLIED', 'ACTION_POINTS_CHANGED', 'UNIT_DAMAGED']);
+  assert.equal(attackResult.state.units['u-b']?.hp, 7);
 
   const endCommand: Action = {
     id: 'end-command:A',

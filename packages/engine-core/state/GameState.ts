@@ -140,6 +140,24 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
       };
     }
 
+    case 'UNIT_DEFEATED': {
+      const target = state.units[event.targetId];
+      if (!target) {
+        return state;
+      }
+
+      return {
+        ...state,
+        units: {
+          ...state.units,
+          [target.id]: {
+            ...target,
+            hp: 0,
+          },
+        },
+      };
+    }
+
     case 'STATUS_APPLIED': {
       const target = state.units[event.targetId];
       if (!target) {

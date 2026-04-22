@@ -21,6 +21,7 @@ interface ActionValidationResult {
 interface AttackCandidatePayload {
   readonly targetId: string;
   readonly amount: number;
+  readonly actionPointCost?: number;
 }
 
 interface EndCommandCandidatePayload {
@@ -34,18 +35,31 @@ interface PassCandidatePayload {
 interface MoveCandidatePayload {
   readonly unitId: string;
   readonly to: { x: number; y: number };
+  readonly actionPointCost?: number;
 }
 
 interface UseAbilityCandidatePayload {
   readonly unitId: string;
   readonly abilityId: string;
   readonly targetId?: string;
+  readonly actionPointCost?: number;
+  readonly cooldown?: number;
 }
 
 interface UseItemCandidatePayload {
   readonly unitId: string;
   readonly itemId: string;
   readonly targetId?: string;
+  readonly actionPointCost?: number;
+  readonly cooldown?: number;
+}
+
+interface ActionResolutionContext {
+  readonly state: GameState;
+  readonly action: Action;
+  readonly events: GameEvent[];
+  actorUnit?: UnitState;
+  targetUnit?: UnitState;
 }
 
 interface GridTargetPayload {
@@ -53,12 +67,12 @@ interface GridTargetPayload {
   readonly y: number;
 }
 
-const ATTACK_PAYLOAD_KEYS: readonly string[] = ['amount', 'targetId'];
+const ATTACK_PAYLOAD_KEYS: readonly string[] = ['amount', 'targetId', 'actionPointCost'];
 const END_COMMAND_PAYLOAD_KEYS: readonly string[] = ['reason'];
 const PASS_PAYLOAD_KEYS: readonly string[] = ['phase'];
-const MOVE_PAYLOAD_KEYS: readonly string[] = ['unitId', 'to'];
-const USE_ABILITY_PAYLOAD_KEYS: readonly string[] = ['unitId', 'abilityId', 'targetId'];
-const USE_ITEM_PAYLOAD_KEYS: readonly string[] = ['unitId', 'itemId', 'targetId'];
+const MOVE_PAYLOAD_KEYS: readonly string[] = ['unitId', 'to', 'actionPointCost'];
+const USE_ABILITY_PAYLOAD_KEYS: readonly string[] = ['unitId', 'abilityId', 'targetId', 'actionPointCost', 'cooldown'];
+const USE_ITEM_PAYLOAD_KEYS: readonly string[] = ['unitId', 'itemId', 'targetId', 'actionPointCost', 'cooldown'];
 const DEFAULT_ATTACK_RANGE = 3;
 
 export class ActionResolver {
@@ -116,64 +130,17 @@ export class ActionResolver {
   }
 
   public resolveActionEffects(state: GameState, action: Action): GameEvent[] {
-    if (!this.validateAction(state, action)) {
+    const context = this.stageIntentValidation(state, action);
+    if (!context) {
       return [];
     }
 
-    const events: GameEvent[] = [
-      {
-        kind: 'ACTION_APPLIED',
-        action,
-        turn: state.turn,
-        round: state.round,
-      },
-    ];
-    if (action.type === 'MOVE') {
-      const payload = this.toMoveCandidatePayload(action.payload);
-      if (payload) {
-        const movingUnit = state.units[payload.unitId];
-        if (movingUnit?.position) {
-          events.push({
-            kind: 'UNIT_MOVED',
-            unitId: payload.unitId,
-            from: movingUnit.position,
-            to: payload.to,
-            turn: state.turn,
-            round: state.round,
-          });
-        }
-      }
-    }
-
-    if (action.type === 'USE_ABILITY') {
-      const payload = this.toUseAbilityCandidatePayload(action.payload);
-      if (payload) {
-        events.push({
-          kind: 'ABILITY_USED',
-          unitId: payload.unitId,
-          abilityId: payload.abilityId,
-          targetId: payload.targetId,
-          turn: state.turn,
-          round: state.round,
-        });
-      }
-    }
-
-    if (action.type === 'USE_ITEM') {
-      const payload = this.toUseItemCandidatePayload(action.payload);
-      if (payload) {
-        events.push({
-          kind: 'ITEM_USED',
-          unitId: payload.unitId,
-          itemId: payload.itemId,
-          targetId: payload.targetId,
-          turn: state.turn,
-          round: state.round,
-        });
-      }
-    }
-
-    return events;
+    this.stageTargetResolution(context);
+    this.stageResourcePayment(context);
+    this.stageEffectApplication(context);
+    this.stageEventEmission(context);
+    this.stagePostResolutionCleanup(context);
+    return context.events;
   }
 
   public getLegalActions(state: GameState, actorId: string): Action[] {
@@ -189,11 +156,11 @@ export class ActionResolver {
           .filter((unit) => unit.ownerId !== actorTeamId && unit.hp > 0)
           .sort((left, right) => left.id.localeCompare(right.id))
           .map((target) => ({
-            id: `attack:${actorId}:${target.id}`,
-            actorId,
-            type: 'ATTACK',
-            payload: { targetId: target.id, amount: 1 },
-          }));
+                  id: `attack:${actorId}:${target.id}`,
+                  actorId,
+                  type: 'ATTACK',
+                  payload: { targetId: target.id, amount: 1 },
+                }));
 
         const moveActions: Action[] =
           actorUnit?.position === undefined
@@ -316,6 +283,10 @@ export class ActionResolver {
     const canonicalPayload: AttackCandidatePayload = {
       targetId,
       amount: normalizedAmount,
+      actionPointCost:
+        typeof payload.actionPointCost === 'number' && Number.isInteger(payload.actionPointCost) && payload.actionPointCost >= 0
+          ? payload.actionPointCost
+          : undefined,
     };
 
     const matchingCandidate = legalActions.find((candidate) => {
@@ -582,7 +553,7 @@ export class ActionResolver {
   }
 
   private attackPayloadEquals(left: AttackCandidatePayload, right: AttackCandidatePayload): boolean {
-    return left.targetId === right.targetId && left.amount === right.amount;
+    return left.targetId === right.targetId && left.amount === right.amount && left.actionPointCost === right.actionPointCost;
   }
 
   private endCommandPayloadEquals(payload: Action['payload'], candidate: EndCommandCandidatePayload): boolean {
@@ -601,7 +572,8 @@ export class ActionResolver {
       normalized &&
         normalized.unitId === candidate.unitId &&
         normalized.to.x === candidate.to.x &&
-        normalized.to.y === candidate.to.y,
+        normalized.to.y === candidate.to.y &&
+        normalized.actionPointCost === candidate.actionPointCost,
     );
   }
 
@@ -611,7 +583,9 @@ export class ActionResolver {
       normalized &&
         normalized.unitId === candidate.unitId &&
         normalized.abilityId === candidate.abilityId &&
-        normalized.targetId === candidate.targetId,
+        normalized.targetId === candidate.targetId &&
+        normalized.actionPointCost === candidate.actionPointCost &&
+        normalized.cooldown === candidate.cooldown,
     );
   }
 
@@ -621,7 +595,9 @@ export class ActionResolver {
       normalized &&
         normalized.unitId === candidate.unitId &&
         normalized.itemId === candidate.itemId &&
-        normalized.targetId === candidate.targetId,
+        normalized.targetId === candidate.targetId &&
+        normalized.actionPointCost === candidate.actionPointCost &&
+        normalized.cooldown === candidate.cooldown,
     );
   }
 
@@ -644,9 +620,15 @@ export class ActionResolver {
     }
 
     const normalizedAmount = amountValue === undefined ? 1 : amountValue;
+    const actionPointCost = this.toNonNegativeInteger(record.actionPointCost);
+    if (record.actionPointCost !== undefined && actionPointCost === undefined) {
+      return undefined;
+    }
+
     return {
       targetId: record.targetId,
       amount: normalizedAmount,
+      actionPointCost,
     };
   }
 
@@ -679,7 +661,12 @@ export class ActionResolver {
       return undefined;
     }
 
-    return { unitId: record.unitId, to: { x: to.x, y: to.y } };
+    const actionPointCost = this.toNonNegativeInteger(record.actionPointCost);
+    if (record.actionPointCost !== undefined && actionPointCost === undefined) {
+      return undefined;
+    }
+
+    return { unitId: record.unitId, to: { x: to.x, y: to.y }, actionPointCost };
   }
 
   private toUseAbilityCandidatePayload(payload: Action['payload']): UseAbilityCandidatePayload | undefined {
@@ -692,10 +679,22 @@ export class ActionResolver {
       return undefined;
     }
 
+    const actionPointCost = this.toNonNegativeInteger(record.actionPointCost);
+    if (record.actionPointCost !== undefined && actionPointCost === undefined) {
+      return undefined;
+    }
+
+    const cooldown = this.toNonNegativeInteger(record.cooldown);
+    if (record.cooldown !== undefined && cooldown === undefined) {
+      return undefined;
+    }
+
     return {
       unitId: record.unitId,
       abilityId: record.abilityId,
       targetId: typeof record.targetId === 'string' ? record.targetId : undefined,
+      actionPointCost,
+      cooldown,
     };
   }
 
@@ -709,11 +708,220 @@ export class ActionResolver {
       return undefined;
     }
 
+    const actionPointCost = this.toNonNegativeInteger(record.actionPointCost);
+    if (record.actionPointCost !== undefined && actionPointCost === undefined) {
+      return undefined;
+    }
+
+    const cooldown = this.toNonNegativeInteger(record.cooldown);
+    if (record.cooldown !== undefined && cooldown === undefined) {
+      return undefined;
+    }
+
     return {
       unitId: record.unitId,
       itemId: record.itemId,
       targetId: typeof record.targetId === 'string' ? record.targetId : undefined,
+      actionPointCost,
+      cooldown,
     };
+  }
+
+  private stageIntentValidation(state: GameState, action: Action): ActionResolutionContext | undefined {
+    if (!this.validateAction(state, action)) {
+      return undefined;
+    }
+
+    return { state, action, events: [] };
+  }
+
+  private stageTargetResolution(context: ActionResolutionContext): void {
+    context.actorUnit = this.findActorUnit(context.state, context.action.actorId);
+
+    if (context.action.type === 'ATTACK') {
+      const payload = this.toAttackCandidatePayload(context.action.payload);
+      context.targetUnit = payload ? context.state.units[payload.targetId] : undefined;
+      return;
+    }
+
+    if (context.action.type === 'USE_ABILITY') {
+      const payload = this.toUseAbilityCandidatePayload(context.action.payload);
+      context.targetUnit = payload?.targetId ? context.state.units[payload.targetId] : undefined;
+      return;
+    }
+
+    if (context.action.type === 'USE_ITEM') {
+      const payload = this.toUseItemCandidatePayload(context.action.payload);
+      context.targetUnit = payload?.targetId ? context.state.units[payload.targetId] : undefined;
+    }
+  }
+
+  private stageResourcePayment(context: ActionResolutionContext): void {
+    const unit = context.actorUnit;
+    if (!unit) {
+      return;
+    }
+
+    const actionPointCost = this.getActionPointCost(context.action);
+    if (actionPointCost > 0 && typeof unit.actionPoints === 'number') {
+      context.events.push({
+        kind: 'ACTION_POINTS_CHANGED',
+        unitId: unit.id,
+        from: unit.actionPoints,
+        to: Math.max(0, unit.actionPoints - actionPointCost),
+        reason: context.action.type === 'MOVE' ? 'MOVE' : context.action.type === 'ATTACK' ? 'ATTACK' : 'EFFECT',
+        turn: context.state.turn,
+        round: context.state.round,
+      });
+    }
+
+    const cooldown = this.getCooldownCost(context.action);
+    const cooldownKey = this.getCooldownKey(context.action);
+    if (cooldown > 0 && cooldownKey) {
+      const from = unit.cooldowns?.[cooldownKey] ?? 0;
+      context.events.push({
+        kind: 'COOLDOWN_TICKED',
+        unitId: unit.id,
+        abilityId: cooldownKey,
+        from,
+        to: cooldown,
+        turn: context.state.turn,
+        round: context.state.round,
+      });
+    }
+  }
+
+  private stageEffectApplication(context: ActionResolutionContext): void {
+    if (context.action.type !== 'ATTACK') {
+      return;
+    }
+
+    const payload = this.toAttackCandidatePayload(context.action.payload);
+    const actorUnit = context.actorUnit;
+    const targetUnit = context.targetUnit;
+    if (!payload || !targetUnit || !actorUnit) {
+      return;
+    }
+
+    context.events.push({
+      kind: 'UNIT_DAMAGED',
+      sourceId: actorUnit.ownerId,
+      sourceUnitId: actorUnit.id,
+      targetId: targetUnit.id,
+      amount: payload.amount,
+      turn: context.state.turn,
+      round: context.state.round,
+    });
+
+    if (targetUnit.hp - payload.amount <= 0) {
+      context.events.push({
+        kind: 'UNIT_DEFEATED',
+        sourceId: actorUnit.ownerId,
+        sourceUnitId: actorUnit.id,
+        targetId: targetUnit.id,
+        turn: context.state.turn,
+        round: context.state.round,
+      });
+    }
+  }
+
+  private stageEventEmission(context: ActionResolutionContext): void {
+    context.events.unshift({
+      kind: 'ACTION_APPLIED',
+      action: context.action,
+      turn: context.state.turn,
+      round: context.state.round,
+    });
+
+    if (context.action.type === 'MOVE') {
+      const payload = this.toMoveCandidatePayload(context.action.payload);
+      if (payload) {
+        const movingUnit = context.state.units[payload.unitId];
+        if (movingUnit?.position) {
+          context.events.push({
+            kind: 'UNIT_MOVED',
+            unitId: payload.unitId,
+            from: movingUnit.position,
+            to: payload.to,
+            turn: context.state.turn,
+            round: context.state.round,
+          });
+        }
+      }
+    }
+
+    if (context.action.type === 'USE_ABILITY') {
+      const payload = this.toUseAbilityCandidatePayload(context.action.payload);
+      if (payload) {
+        context.events.push({
+          kind: 'ABILITY_USED',
+          unitId: payload.unitId,
+          abilityId: payload.abilityId,
+          targetId: payload.targetId,
+          turn: context.state.turn,
+          round: context.state.round,
+        });
+      }
+    }
+
+    if (context.action.type === 'USE_ITEM') {
+      const payload = this.toUseItemCandidatePayload(context.action.payload);
+      if (payload) {
+        context.events.push({
+          kind: 'ITEM_USED',
+          unitId: payload.unitId,
+          itemId: payload.itemId,
+          targetId: payload.targetId,
+          turn: context.state.turn,
+          round: context.state.round,
+        });
+      }
+    }
+  }
+
+  private stagePostResolutionCleanup(_: ActionResolutionContext): void {}
+
+  private getActionPointCost(action: Action): number {
+    if (action.type === 'ATTACK') {
+      return this.toAttackCandidatePayload(action.payload)?.actionPointCost ?? 1;
+    }
+    if (action.type === 'MOVE') {
+      return this.toMoveCandidatePayload(action.payload)?.actionPointCost ?? 0;
+    }
+    if (action.type === 'USE_ABILITY') {
+      return this.toUseAbilityCandidatePayload(action.payload)?.actionPointCost ?? 0;
+    }
+    if (action.type === 'USE_ITEM') {
+      return this.toUseItemCandidatePayload(action.payload)?.actionPointCost ?? 0;
+    }
+    return 0;
+  }
+
+  private getCooldownCost(action: Action): number {
+    if (action.type === 'USE_ABILITY') {
+      return this.toUseAbilityCandidatePayload(action.payload)?.cooldown ?? 0;
+    }
+    if (action.type === 'USE_ITEM') {
+      return this.toUseItemCandidatePayload(action.payload)?.cooldown ?? 0;
+    }
+    return 0;
+  }
+
+  private getCooldownKey(action: Action): string | undefined {
+    if (action.type === 'USE_ABILITY') {
+      return this.toUseAbilityCandidatePayload(action.payload)?.abilityId;
+    }
+    if (action.type === 'USE_ITEM') {
+      return this.toUseItemCandidatePayload(action.payload)?.itemId;
+    }
+    return undefined;
+  }
+
+  private toNonNegativeInteger(value: unknown): number | undefined {
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+      return undefined;
+    }
+    return value;
   }
 
   private toRecord(payload: Action['payload']): Record<string, unknown> | undefined {
