@@ -1,4 +1,5 @@
 import type {
+  ActiveEffect,
   ActivationSlot,
   Phase,
   Position,
@@ -21,7 +22,7 @@ export interface UnitState {
   readonly actionPoints?: number;
   readonly maxActionPoints?: number;
   readonly cooldowns?: Readonly<Record<string, number>>;
-  readonly statusEffectIds?: readonly string[];
+  readonly activeEffects?: readonly ActiveEffect[];
 }
 
 export type Action = SimulationAction;
@@ -164,23 +165,30 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
         return state;
       }
 
-      const statusEffectsById = (target.statusEffectIds ?? []).reduce<Map<string, string>>((acc, entry) => {
-        const separatorIndex = entry.indexOf(':');
-        if (separatorIndex === -1) {
-          acc.set(entry, entry);
-          return acc;
-        }
-
-        const statusId = entry.slice(0, separatorIndex);
-        const duration = entry.slice(separatorIndex + 1);
-        acc.set(statusId, duration);
+      const normalizedExistingEffects = normalizeActiveEffects(target.activeEffects);
+      const effectKey = getEffectKey(event.statusId, event.sourceUnitId);
+      const nextEffectsByKey = normalizedExistingEffects.reduce<Map<string, ActiveEffect>>((acc, effect) => {
+        acc.set(getEffectKey(effect.effectId, effect.sourceUnitId), effect);
         return acc;
       }, new Map());
+      const existingEffect =
+        nextEffectsByKey.get(effectKey) ??
+        (event.sourceUnitId ? nextEffectsByKey.get(getEffectKey(event.statusId, undefined)) : undefined);
+      if (existingEffect && event.sourceUnitId && !nextEffectsByKey.has(effectKey)) {
+        nextEffectsByKey.delete(getEffectKey(event.statusId, undefined));
+      }
 
-      statusEffectsById.set(event.statusId, String(event.duration));
-      const statusEffectIds = Array.from(statusEffectsById.entries())
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([statusId, duration]) => `${statusId}:${duration}`);
+      nextEffectsByKey.set(
+        effectKey,
+        createActiveEffect(
+          event.statusId,
+          existingEffect ? Math.max(existingEffect.duration, event.duration) : event.duration,
+          event.sourceUnitId,
+          (existingEffect?.stacks ?? 1) + (existingEffect ? 1 : 0),
+        ),
+      );
+
+      const activeEffects = Array.from(nextEffectsByKey.values()).sort(compareActiveEffects);
 
       return {
         ...state,
@@ -188,7 +196,7 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
           ...state.units,
           [target.id]: {
             ...target,
-            statusEffectIds,
+            activeEffects,
           },
         },
       };
@@ -280,7 +288,7 @@ export function toRuleEvaluationState(state: GameState, mapId: string): RuleEval
     maxActionPoints: unit.maxActionPoints,
     cooldowns: unit.cooldowns,
     position: unit.position ?? (unit.spatialRef ? { x: unit.spatialRef.q, y: unit.spatialRef.r } : undefined),
-    statusEffectIds: unit.statusEffectIds,
+    activeEffects: unit.activeEffects,
   }));
 
   const activeTeamId =
@@ -315,10 +323,87 @@ export function toSchedulerStateSnapshot(state: GameState): SchedulerStateSnapsh
       maxActionPoints: unit.maxActionPoints,
       cooldowns: unit.cooldowns,
       position: unit.position ?? (unit.spatialRef ? { x: unit.spatialRef.q, y: unit.spatialRef.r } : undefined),
-      statusEffectIds: unit.statusEffectIds,
+      activeEffects: unit.activeEffects,
     })),
     turn: state.turn,
     round: state.round,
     phase: state.phase,
+  };
+}
+
+function getEffectKey(effectId: string, sourceUnitId?: string): string {
+  return `${effectId}::${sourceUnitId ?? ''}`;
+}
+
+function compareActiveEffects(left: ActiveEffect, right: ActiveEffect): number {
+  if (left.effectId !== right.effectId) {
+    return left.effectId.localeCompare(right.effectId);
+  }
+
+  return (left.sourceUnitId ?? '').localeCompare(right.sourceUnitId ?? '');
+}
+
+function normalizeActiveEffects(activeEffects: readonly ActiveEffect[] | undefined): ActiveEffect[] {
+  return (activeEffects ?? [])
+    .map((effect) => createActiveEffect(effect.effectId, Math.max(0, effect.duration), effect.sourceUnitId, Math.max(1, effect.stacks ?? 1)))
+    .sort(compareActiveEffects);
+}
+
+export interface LegacyUnitStateWithStatusEffectIds extends Omit<UnitState, 'activeEffects'> {
+  readonly statusEffectIds?: readonly string[];
+}
+
+export interface LegacyGameStateWithStatusEffectIds extends Omit<GameState, 'units'> {
+  readonly units: Readonly<Record<UnitId, LegacyUnitStateWithStatusEffectIds>>;
+}
+
+export function migrateLegacyStatusEffectIdsState(
+  state: LegacyGameStateWithStatusEffectIds | GameState,
+): GameState {
+  const migratedUnits = Object.fromEntries(
+    Object.entries(state.units).map(([unitId, unit]) => {
+      const maybeLegacyUnit = unit as LegacyUnitStateWithStatusEffectIds;
+      const activeEffects =
+        'activeEffects' in unit && unit.activeEffects
+          ? normalizeActiveEffects(unit.activeEffects)
+          : parseLegacyStatusEffectIds(maybeLegacyUnit.statusEffectIds);
+
+      return [
+        unitId,
+        {
+          ...unit,
+          activeEffects: activeEffects.length > 0 ? activeEffects : undefined,
+        },
+      ];
+    }),
+  ) as Readonly<Record<UnitId, UnitState>>;
+
+  return {
+    ...state,
+    units: migratedUnits,
+  };
+}
+
+function parseLegacyStatusEffectIds(statusEffectIds: readonly string[] | undefined): ActiveEffect[] {
+  const effectMap = (statusEffectIds ?? []).reduce<Map<string, ActiveEffect>>((acc, entry) => {
+    const separatorIndex = entry.indexOf(':');
+    const effectId = separatorIndex === -1 ? entry : entry.slice(0, separatorIndex);
+    const durationValue = separatorIndex === -1 ? Number.NaN : Number.parseInt(entry.slice(separatorIndex + 1), 10);
+    const duration = Number.isFinite(durationValue) ? Math.max(0, durationValue) : 0;
+    const key = getEffectKey(effectId, undefined);
+    const existing = acc.get(key);
+    acc.set(key, createActiveEffect(effectId, existing ? Math.max(existing.duration, duration) : duration, undefined, (existing?.stacks ?? 1) + (existing ? 1 : 0)));
+    return acc;
+  }, new Map());
+
+  return Array.from(effectMap.values()).sort(compareActiveEffects);
+}
+
+function createActiveEffect(effectId: string, duration: number, sourceUnitId?: UnitId, stacks = 1): ActiveEffect {
+  return {
+    effectId,
+    duration,
+    stacks,
+    ...(sourceUnitId ? { sourceUnitId } : {}),
   };
 }

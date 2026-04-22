@@ -9,6 +9,13 @@ export interface Position {
   readonly y: number;
 }
 
+export interface ActiveEffect {
+  readonly effectId: string;
+  readonly sourceUnitId?: UnitId;
+  readonly duration: number;
+  readonly stacks?: number;
+}
+
 export interface SimulationUnit {
   readonly id: UnitId;
   readonly teamId: TeamId;
@@ -19,7 +26,7 @@ export interface SimulationUnit {
   readonly maxActionPoints?: number;
   readonly cooldowns?: Readonly<Record<string, number>>;
   readonly position?: Position;
-  readonly statusEffectIds?: readonly string[];
+  readonly activeEffects?: readonly ActiveEffect[];
 }
 
 export interface EndCommandActionPayload {

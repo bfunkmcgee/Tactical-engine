@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
-import { createInitialState, getActiveActorId, reduceEvents, reduceState, type GameEvent } from '../GameState';
+import {
+  createInitialState,
+  getActiveActorId,
+  migrateLegacyStatusEffectIdsState,
+  reduceEvents,
+  reduceState,
+  type GameEvent,
+} from '../GameState';
 
 test('reduceState ignores damage for unknown target', () => {
   const state = createInitialState(['A', 'B'], [{ id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10 }]);
@@ -62,7 +69,13 @@ test('reduceEvents applies order and clamps hp floor to 0', () => {
 
 test('reduceState upserts statuses when same status is applied multiple times', () => {
   const state = createInitialState(['A', 'B'], [
-    { id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10, statusEffectIds: ['burn:1'] },
+    {
+      id: 'u-a',
+      ownerId: 'A',
+      hp: 10,
+      maxHp: 10,
+      activeEffects: [{ effectId: 'burn', duration: 1, stacks: 1 }],
+    },
   ]);
 
   const next = reduceState(state, {
@@ -75,12 +88,18 @@ test('reduceState upserts statuses when same status is applied multiple times', 
     round: 1,
   });
 
-  assert.deepEqual(next.units['u-a']?.statusEffectIds, ['burn:4']);
+  assert.deepEqual(next.units['u-a']?.activeEffects, [{ effectId: 'burn', sourceUnitId: 'u-a', duration: 4, stacks: 2 }]);
 });
 
 test('reduceState refreshes status duration and keeps deterministic ordering', () => {
   const state = createInitialState(['A', 'B'], [
-    { id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10, statusEffectIds: ['regen:2', 'burn:1'] },
+    {
+      id: 'u-a',
+      ownerId: 'A',
+      hp: 10,
+      maxHp: 10,
+      activeEffects: [{ effectId: 'regen', duration: 2 }, { effectId: 'burn', duration: 1 }],
+    },
   ]);
 
   const next = reduceState(state, {
@@ -93,12 +112,25 @@ test('reduceState refreshes status duration and keeps deterministic ordering', (
     round: 1,
   });
 
-  assert.deepEqual(next.units['u-a']?.statusEffectIds, ['burn:1', 'regen:6']);
+  assert.deepEqual(next.units['u-a']?.activeEffects, [
+    { effectId: 'burn', duration: 1, stacks: 1 },
+    { effectId: 'regen', sourceUnitId: 'u-a', duration: 6, stacks: 2 },
+  ]);
 });
 
-test('reduceState removes duplicate status ids when applying status', () => {
+test('reduceState keeps same effect from different sources and refreshes matching source', () => {
   const state = createInitialState(['A', 'B'], [
-    { id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10, statusEffectIds: ['burn:1', 'burn:3', 'poison:2'] },
+    {
+      id: 'u-a',
+      ownerId: 'A',
+      hp: 10,
+      maxHp: 10,
+      activeEffects: [
+        { effectId: 'burn', sourceUnitId: 'u-a', duration: 1, stacks: 1 },
+        { effectId: 'burn', sourceUnitId: 'u-b', duration: 3, stacks: 1 },
+        { effectId: 'poison', duration: 2, stacks: 1 },
+      ],
+    },
   ]);
 
   const next = reduceState(state, {
@@ -111,7 +143,29 @@ test('reduceState removes duplicate status ids when applying status', () => {
     round: 1,
   });
 
-  assert.deepEqual(next.units['u-a']?.statusEffectIds, ['burn:5', 'poison:2']);
+  assert.deepEqual(next.units['u-a']?.activeEffects, [
+    { effectId: 'burn', sourceUnitId: 'u-a', duration: 5, stacks: 2 },
+    { effectId: 'burn', sourceUnitId: 'u-b', duration: 3, stacks: 1 },
+    { effectId: 'poison', duration: 2, stacks: 1 },
+  ]);
+});
+
+test('migrateLegacyStatusEffectIdsState converts string status entries into active effects', () => {
+  const state = createInitialState(['A', 'B'], [{ id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10 }]) as ReturnType<
+    typeof createInitialState
+  > & {
+    units: Record<string, { id: string; ownerId: string; hp: number; maxHp: number; statusEffectIds?: string[] }>;
+  };
+  state.units['u-a'] = {
+    ...state.units['u-a'],
+    statusEffectIds: ['burn:1', 'burn:3', 'poison:not-a-number'],
+  };
+
+  const next = migrateLegacyStatusEffectIdsState(state);
+  assert.deepEqual(next.units['u-a']?.activeEffects, [
+    { effectId: 'burn', duration: 3, stacks: 2 },
+    { effectId: 'poison', duration: 0, stacks: 1 },
+  ]);
 });
 
 test('reduceState sets hp to zero when UNIT_DEFEATED is received', () => {
