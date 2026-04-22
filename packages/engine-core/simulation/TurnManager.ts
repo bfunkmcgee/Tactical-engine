@@ -3,9 +3,9 @@ import {
   reduceEvents,
   type GameEvent,
   type GameState,
-  type Phase,
   type StateTransitionResult,
 } from '../state/GameState';
+import type { Phase } from '../state/SimulationContract';
 
 const PHASE_ORDER: readonly Phase[] = ['START_TURN', 'COMMAND', 'RESOLUTION', 'END_TURN'];
 

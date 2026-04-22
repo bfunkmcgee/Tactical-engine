@@ -1,24 +1,45 @@
+import type { EngineActionView } from '../state/presentationStore';
+
 type HUDPanelProps = {
   selected?: string;
-  lastInspection?: string;
-  onAction: (action: string) => void;
+  phase: string;
+  turn: number;
+  round: number;
+  activeActorId: string;
+  feedback: string[];
+  legalActions: EngineActionView[];
+  onAction: (actionId: string) => void;
 };
 
-const ACTIONS = ['Move', 'Attack', 'Guard', 'Wait'];
-
-export function HUDPanel({ selected, lastInspection, onAction }: HUDPanelProps) {
+export function HUDPanel({
+  selected,
+  phase,
+  turn,
+  round,
+  activeActorId,
+  feedback,
+  legalActions,
+  onAction,
+}: HUDPanelProps) {
   return (
     <section className="hud-panel" aria-label="Action panel">
       <div className="hud-meta">
         <p>{selected ? `Selected: ${selected}` : 'No unit selected'}</p>
-        <small>{lastInspection ?? 'Long-press to inspect tile/unit'}</small>
+        <small>{`Round ${round} · Turn ${turn} · ${phase} · ${activeActorId}`}</small>
       </div>
       <div className="hud-actions">
-        {ACTIONS.map((action) => (
-          <button key={action} className="hud-button" onClick={() => onAction(action)}>
-            {action}
-          </button>
-        ))}
+        {legalActions.length > 0 ? (
+          legalActions.map((action) => (
+            <button key={action.id} className="hud-button" onClick={() => onAction(action.id)}>
+              {action.label}
+            </button>
+          ))
+        ) : (
+          <small>Select the active unit to see legal actions.</small>
+        )}
+      </div>
+      <div className="hud-meta">
+        <small>{feedback[feedback.length - 1] ?? 'Tap to select. Long-press to inspect.'}</small>
       </div>
     </section>
   );
