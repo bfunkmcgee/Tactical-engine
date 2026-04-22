@@ -106,7 +106,11 @@ export function reduceEvents(state: GameState, events: readonly GameEvent[]): Ga
 }
 
 export function createInitialState(players: readonly TeamId[], units: readonly UnitState[]): GameState {
-  const firstActor = players[0] ?? '';
+  const firstActor = players[0];
+  if (!firstActor) {
+    throw new Error('Cannot create initial state with no players.');
+  }
+
   const unitMap = units.reduce<Record<UnitId, UnitState>>((acc, unit) => {
     acc[unit.id] = unit;
     return acc;

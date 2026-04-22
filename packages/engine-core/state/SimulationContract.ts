@@ -74,6 +74,13 @@ export type SimulationEvent =
       readonly amount: number;
       readonly turn: number;
       readonly round: number;
+    }
+  | {
+      readonly kind: 'INTEGRITY_VIOLATION';
+      readonly invariant: string;
+      readonly detail: string;
+      readonly turn: number;
+      readonly round: number;
     };
 
 export interface RuleEvaluationState {
