@@ -7,6 +7,9 @@ import {
   type StateTransitionResult,
   type UnitState,
 } from '../state/GameState';
+import { SquareGridAdapter } from '../../engine-spatial/grid/GridAdapter';
+import { LineOfSight } from '../../engine-spatial/los/LineOfSight';
+import { Targeting } from '../../engine-spatial/range/Targeting';
 
 interface ActionValidationResult {
   readonly isValid: boolean;
@@ -50,8 +53,12 @@ const PASS_PAYLOAD_KEYS: readonly string[] = ['phase'];
 const MOVE_PAYLOAD_KEYS: readonly string[] = ['unitId', 'to'];
 const USE_ABILITY_PAYLOAD_KEYS: readonly string[] = ['unitId', 'abilityId', 'targetId'];
 const USE_ITEM_PAYLOAD_KEYS: readonly string[] = ['unitId', 'itemId', 'targetId'];
+const DEFAULT_ATTACK_RANGE = 3;
 
 export class ActionResolver {
+  private readonly grid = new SquareGridAdapter();
+  private readonly targeting = new Targeting(this.grid);
+
   public applyAction(state: GameState, action: Action): StateTransitionResult {
     const validation = this.validateActionWithReason(state, action);
     if (!validation.isValid) {
@@ -330,10 +337,34 @@ export class ActionResolver {
     }
 
     const actorUnit = this.findActorUnit(state, action.actorId);
-    if (actorUnit && this.isOutOfRange(actorUnit, target, matchingCandidate)) {
+    if (!actorUnit) {
+      return {
+        isValid: false,
+        reason: 'ATTACK_SOURCE_NOT_FOUND',
+        details: { actorId: action.actorId },
+      };
+    }
+
+    if (!this.targetHasValidOccupancy(state, target)) {
+      return {
+        isValid: false,
+        reason: 'ATTACK_TARGET_OCCUPANCY_INVALID',
+        details: { targetId },
+      };
+    }
+
+    if (this.isOutOfRange(actorUnit, target, matchingCandidate)) {
       return {
         isValid: false,
         reason: 'ATTACK_TARGET_OUT_OF_RANGE',
+        details: { actorId: action.actorId, targetId },
+      };
+    }
+
+    if (!this.hasLineOfSight(state, actorUnit, target)) {
+      return {
+        isValid: false,
+        reason: 'ATTACK_TARGET_NO_LINE_OF_SIGHT',
         details: { actorId: action.actorId, targetId },
       };
     }
@@ -690,25 +721,84 @@ export class ActionResolver {
 
   private isOutOfRange(actorUnit: UnitState, targetUnit: UnitState, action: Action): boolean {
     const payload = this.toRecord(action.payload);
-    if (!payload) {
-      return false;
-    }
-
-    const configuredRange = payload.range;
-    if (typeof configuredRange !== 'number' || configuredRange < 0) {
-      return false;
-    }
-
-    const actorPosition = (actorUnit as UnitState & { position?: { x: number; y: number } }).position;
-    const targetPosition = (targetUnit as UnitState & { position?: { x: number; y: number } }).position;
+    const actorPosition = this.toCell(actorUnit);
+    const targetPosition = this.toCell(targetUnit);
 
     if (!actorPosition || !targetPosition) {
       return false;
     }
 
-    const distance =
-      Math.abs(actorPosition.x - targetPosition.x) + Math.abs(actorPosition.y - targetPosition.y);
+    const configuredRange = payload?.range;
+    const maxRange = typeof configuredRange === 'number' && configuredRange >= 0 ? configuredRange : DEFAULT_ATTACK_RANGE;
+    const attackableCells = this.targeting.getTargetCells({
+      origin: actorPosition,
+      minRange: 1,
+      maxRange,
+      aoePattern: [{ q: 0, r: 0 }],
+    });
+    const inRange = attackableCells.some((cell) => cell.target.q === targetPosition.q && cell.target.r === targetPosition.r);
 
-    return distance > configuredRange;
+    return !inRange;
+  }
+
+  private hasLineOfSight(state: GameState, actorUnit: UnitState, targetUnit: UnitState): boolean {
+    const actorPosition = this.toCell(actorUnit);
+    const targetPosition = this.toCell(targetUnit);
+    if (!actorPosition || !targetPosition) {
+      return true;
+    }
+
+    const occupiedCells = new Set<string>();
+    for (const unit of Object.values(state.units)) {
+      const cell = this.toCell(unit);
+      if (!cell || unit.hp <= 0) {
+        continue;
+      }
+      if (
+        (cell.q === actorPosition.q && cell.r === actorPosition.r) ||
+        (cell.q === targetPosition.q && cell.r === targetPosition.r)
+      ) {
+        continue;
+      }
+
+      occupiedCells.add(this.toCellKey(cell.q, cell.r));
+    }
+
+    const los = new LineOfSight({
+      getObstacle: (cell) => (occupiedCells.has(this.toCellKey(cell.q, cell.r)) ? 'hard' : 'none'),
+      getCoverValue: () => 0,
+    });
+    los.setTurn(state.turn);
+    return los.query(actorPosition, targetPosition).visible;
+  }
+
+  private targetHasValidOccupancy(state: GameState, targetUnit: UnitState): boolean {
+    const targetCell = this.toCell(targetUnit);
+    if (!targetCell) {
+      return false;
+    }
+
+    return Object.values(state.units).some((unit) => {
+      if (unit.id !== targetUnit.id || unit.hp <= 0) {
+        return false;
+      }
+
+      const cell = this.toCell(unit);
+      return Boolean(cell && cell.q === targetCell.q && cell.r === targetCell.r);
+    });
+  }
+
+  private toCell(unit: UnitState): { q: number; r: number } | undefined {
+    if (unit.spatialRef) {
+      return { q: unit.spatialRef.q, r: unit.spatialRef.r };
+    }
+    if (unit.position) {
+      return { q: unit.position.x, r: unit.position.y };
+    }
+    return undefined;
+  }
+
+  private toCellKey(q: number, r: number): string {
+    return `${q},${r}`;
   }
 }

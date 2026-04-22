@@ -15,6 +15,7 @@ export interface UnitState {
   readonly hp: number;
   readonly maxHp: number;
   readonly position?: Position;
+  readonly spatialRef?: Readonly<{ q: number; r: number }>;
   readonly actionPoints?: number;
   readonly maxActionPoints?: number;
   readonly cooldowns?: Readonly<Record<string, number>>;
@@ -224,7 +225,7 @@ export function toRuleEvaluationState(state: GameState, mapId: string): RuleEval
     actionPoints: unit.actionPoints,
     maxActionPoints: unit.maxActionPoints,
     cooldowns: unit.cooldowns,
-    position: unit.position,
+    position: unit.position ?? (unit.spatialRef ? { x: unit.spatialRef.q, y: unit.spatialRef.r } : undefined),
     statusEffectIds: unit.statusEffectIds,
   }));
 

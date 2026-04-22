@@ -38,7 +38,6 @@ const TEAM_COLORS: Record<string, string> = {
   'player-2': '#eab308',
 };
 
-const GRID_COLUMNS = 16;
 const TILE_SIZE = 56;
 
 function toActionLabel(action: Action): string {
@@ -95,14 +94,18 @@ export function projectEngineSnapshot(params: {
 
   const entities = Object.values(state.units)
     .sort((left, right) => left.id.localeCompare(right.id))
-    .map((unit, index) => ({
-      id: unit.id,
-      x: (index % GRID_COLUMNS) * TILE_SIZE,
-      y: Math.floor(index / GRID_COLUMNS) * TILE_SIZE,
-      color: TEAM_COLORS[unit.ownerId] ?? '#38bdf8',
-      hp: unit.hp,
-      maxHp: unit.maxHp,
-    }));
+    .map((unit) => {
+      const logicalX = unit.position?.x ?? unit.spatialRef?.q ?? 0;
+      const logicalY = unit.position?.y ?? unit.spatialRef?.r ?? 0;
+      return {
+        id: unit.id,
+        x: logicalX * TILE_SIZE,
+        y: logicalY * TILE_SIZE,
+        color: TEAM_COLORS[unit.ownerId] ?? '#38bdf8',
+        hp: unit.hp,
+        maxHp: unit.maxHp,
+      };
+    });
 
   const selectedUnit = selection ? state.units[selection] : undefined;
   const selectedLegalActions =
