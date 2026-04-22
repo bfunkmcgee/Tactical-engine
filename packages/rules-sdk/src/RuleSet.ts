@@ -1,26 +1,8 @@
-import type { ContentIndex } from "./contentIndex";
-import type { RuleHooks, TeamId, UnitId } from "./hooks";
+import type { Position, RuleEvaluationState, TeamId, UnitId } from '../../engine-core/state/SimulationContract';
+import type { ContentIndex } from './contentIndex';
+import type { RuleHooks } from './hooks';
 
-export interface Position {
-  x: number;
-  y: number;
-}
-
-export interface BattleUnit {
-  id: UnitId;
-  definitionId: string;
-  teamId: TeamId;
-  health: number;
-  position: Position;
-  statusEffectIds: string[];
-}
-
-export interface BattleState {
-  turn: number;
-  activeTeamId: TeamId;
-  units: BattleUnit[];
-  mapId: string;
-}
+export type BattleState = RuleEvaluationState;
 
 export interface DamageResolution {
   amount: number;
