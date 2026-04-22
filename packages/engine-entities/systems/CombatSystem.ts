@@ -77,6 +77,11 @@ export class CombatSystem {
   }
 
   attack(store: EntityStore, request: AttackRequest): AttackResult {
+    const defenderBaseStats = store.getComponent<Stats>(STATS_COMPONENT, request.defenderId);
+    if (!defenderBaseStats || defenderBaseStats.hp <= 0) {
+      return { success: false, damage: 0 };
+    }
+
     const events = this.collectEvents(store, request);
     if (events.length === 0) {
       return { success: false, damage: 0 };
