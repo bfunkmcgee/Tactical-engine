@@ -11,6 +11,7 @@ import {
 import { SquareGridAdapter } from '../../engine-spatial/grid/GridAdapter';
 import { LineOfSight } from '../../engine-spatial/los/LineOfSight';
 import { Targeting } from '../../engine-spatial/range/Targeting';
+import { DemoLegalActionGenerator, type LegalActionGenerator } from './LegalActionGenerator';
 
 interface ActionValidationResult {
   readonly isValid: boolean;
@@ -78,6 +79,11 @@ const DEFAULT_ATTACK_RANGE = 3;
 export class ActionResolver {
   private readonly grid = new SquareGridAdapter();
   private readonly targeting = new Targeting(this.grid);
+  private readonly legalActionGenerator: LegalActionGenerator;
+
+  constructor(legalActionGenerator: LegalActionGenerator = new DemoLegalActionGenerator()) {
+    this.legalActionGenerator = legalActionGenerator;
+  }
 
   public applyAction(state: GameState, action: Action): StateTransitionResult {
     const validation = this.validateActionWithReason(state, action);
@@ -144,98 +150,7 @@ export class ActionResolver {
   }
 
   public getLegalActions(state: GameState, actorId: string): Action[] {
-    if (getActiveActorId(state) !== actorId) {
-      return [];
-    }
-
-    switch (state.phase) {
-      case 'COMMAND': {
-        const actorUnit = this.findActorUnit(state, actorId);
-        const actorTeamId = actorUnit?.ownerId ?? actorId;
-        const attackActions: Action[] = Object.values(state.units)
-          .filter((unit) => unit.ownerId !== actorTeamId && unit.hp > 0)
-          .sort((left, right) => left.id.localeCompare(right.id))
-          .map((target) => ({
-                  id: `attack:${actorId}:${target.id}`,
-                  actorId,
-                  type: 'ATTACK',
-                  payload: { targetId: target.id, amount: 1 },
-                }));
-
-        const moveActions: Action[] =
-          actorUnit?.position === undefined
-            ? []
-            : [
-                {
-                  id: `move:${actorId}:${actorUnit.id}:${actorUnit.position.x + 1}:${actorUnit.position.y}`,
-                  actorId,
-                  type: 'MOVE',
-                  payload: {
-                    unitId: actorUnit.id,
-                    to: { x: actorUnit.position.x + 1, y: actorUnit.position.y },
-                  },
-                },
-              ];
-
-        const useAbilityActions: Action[] = actorUnit
-          ? [
-              {
-                id: `use-ability:${actorId}:${actorUnit.id}:basic-strike`,
-                actorId,
-                type: 'USE_ABILITY',
-                payload: {
-                  unitId: actorUnit.id,
-                  abilityId: 'basic-strike',
-                  targetId: attackActions.length > 0 ? (attackActions[0]?.payload as { targetId?: string })?.targetId : undefined,
-                },
-              },
-            ]
-          : [];
-
-        const useItemActions: Action[] = actorUnit
-          ? [
-              {
-                id: `use-item:${actorId}:${actorUnit.id}:basic-potion`,
-                actorId,
-                type: 'USE_ITEM',
-                payload: {
-                  unitId: actorUnit.id,
-                  itemId: 'basic-potion',
-                  targetId: actorUnit.id,
-                },
-              },
-            ]
-          : [];
-
-        return [
-          ...attackActions,
-          ...moveActions,
-          ...useAbilityActions,
-          ...useItemActions,
-          {
-            id: `end-command:${actorId}`,
-            actorId,
-            type: 'END_COMMAND',
-            payload: { reason: 'manual' },
-          },
-        ];
-      }
-
-      case 'RESOLUTION':
-      case 'START_TURN':
-      case 'END_TURN':
-        return [
-          {
-            id: `pass:${actorId}:${state.phase}`,
-            actorId,
-            type: 'PASS',
-            payload: { phase: state.phase },
-          },
-        ];
-
-      default:
-        return [];
-    }
+    return this.legalActionGenerator.getLegalActions(state, actorId);
   }
 
   private validateAttackAction(state: GameState, action: Action, legalActions: Action[]): ActionValidationResult {

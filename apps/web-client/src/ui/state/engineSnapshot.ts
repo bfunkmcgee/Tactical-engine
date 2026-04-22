@@ -1,4 +1,5 @@
 import type { Action, GameEvent, GameState } from '../../../../../packages/engine-core/state/GameState';
+import { getActiveActorId } from '../../../../../packages/engine-core/state/GameState';
 
 export type Entity = {
   id: string;
@@ -16,7 +17,7 @@ export type ViewState = {
 };
 
 export type EngineActionView = {
-  id: string;
+  command: Action;
   label: string;
 };
 
@@ -108,10 +109,11 @@ export function projectEngineSnapshot(params: {
     });
 
   const selectedUnit = selection ? state.units[selection] : undefined;
+  const activeActorId = getActiveActorId(state);
   const selectedLegalActions =
-    selectedUnit && selectedUnit.ownerId === state.activeActorId
-      ? getLegalActions(state, state.activeActorId).map((action) => ({
-          id: action.id,
+    selectedUnit && selectedUnit.ownerId === activeActorId
+      ? getLegalActions(state, activeActorId).map((action) => ({
+          command: action,
           label: toActionLabel(action),
         }))
       : [];
@@ -131,6 +133,6 @@ export function projectEngineSnapshot(params: {
     phase: state.phase,
     turn: state.turn,
     round: state.round,
-    activeActorId: state.activeActorId,
+    activeActorId,
   };
 }

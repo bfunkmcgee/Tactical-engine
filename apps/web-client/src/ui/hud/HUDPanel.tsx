@@ -1,4 +1,5 @@
 import type { EngineActionView } from '../state/presentationStore';
+import type { Action } from '../../../../../packages/engine-core/state/GameState';
 
 type HUDPanelProps = {
   selected?: string;
@@ -8,7 +9,7 @@ type HUDPanelProps = {
   activeActorId: string;
   feedback: string[];
   legalActions: EngineActionView[];
-  onAction: (actionId: string) => void;
+  onAction: (action: Action) => void;
 };
 
 export function HUDPanel({
@@ -30,7 +31,7 @@ export function HUDPanel({
       <div className="hud-actions">
         {legalActions.length > 0 ? (
           legalActions.map((action) => (
-            <button key={action.id} className="hud-button" onClick={() => onAction(action.id)}>
+            <button key={action.command.id} className="hud-button" onClick={() => onAction(action.command)}>
               {action.label}
             </button>
           ))

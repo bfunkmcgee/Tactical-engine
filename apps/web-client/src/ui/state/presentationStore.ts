@@ -3,7 +3,9 @@ import {
   type GameEvent,
   type GameState,
   type UnitState,
+  type Action,
   createInitialState,
+  getActiveActorId,
 } from '../../../../../packages/engine-core/state/GameState';
 import { advancePhase, getLegalActions, step } from '../../../../../packages/engine-core/simulation/Engine';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
@@ -96,11 +98,18 @@ export function usePresentationStore() {
           };
         });
       },
-      triggerAction: (actionId: string) => {
+      triggerAction: (action: Action) => {
         setStore((prev) => {
-          const legalActions = prev.state.activeActorId ? getLegalActions(prev.state, prev.state.activeActorId) : [];
-          const action = legalActions.find((candidate) => candidate.id === actionId);
-          if (!action) {
+          const activeActorId = getActiveActorId(prev.state);
+          const legalActions = getLegalActions(prev.state, activeActorId);
+          const requestedPayload = JSON.stringify(action.payload ?? null);
+          const isLegal = legalActions.some(
+            (candidate) =>
+              candidate.type === action.type &&
+              candidate.actorId === action.actorId &&
+              JSON.stringify(candidate.payload ?? null) === requestedPayload,
+          );
+          if (!isLegal) {
             return prev;
           }
 
