@@ -18,6 +18,7 @@ import {
   RuleSet,
   UnitId,
   VictoryResult,
+  SimulationEvent,
 } from '../../../packages/rules-sdk/src';
 import { DamageEvent, TurnStartEvent, UnitDefeatedEvent } from '../../../packages/rules-sdk/src/hooks';
 
@@ -211,6 +212,46 @@ export class ExampleRuleSet implements RuleSet {
 
     const [winnerTeamId] = [...teamsWithUnits];
     return winnerTeamId ? { winnerTeamId } : { isDraw: true };
+  }
+
+
+  toEngineEvents(event: TurnStartEvent | DamageEvent | UnitDefeatedEvent): SimulationEvent[] {
+    if ('unitIds' in event) {
+      return [
+        {
+          kind: 'TURN_STARTED',
+          actorId: event.activeTeamId,
+          turn: event.turn,
+          round: 1,
+        },
+      ];
+    }
+
+    if ('amount' in event) {
+      return [
+        {
+          kind: 'UNIT_DAMAGED',
+          sourceId: event.activeTeamId,
+          sourceUnitId: event.sourceUnitId,
+          targetId: event.targetUnitId,
+          amount: event.amount,
+          abilityId: event.abilityId,
+          turn: event.turn,
+          round: 1,
+        },
+      ];
+    }
+
+    return [
+      {
+        kind: 'UNIT_DEFEATED',
+        sourceId: event.activeTeamId,
+        sourceUnitId: event.sourceUnitId,
+        targetId: event.unitId,
+        turn: event.turn,
+        round: 1,
+      },
+    ];
   }
 
   onTurnStart(event: TurnStartEvent): void {

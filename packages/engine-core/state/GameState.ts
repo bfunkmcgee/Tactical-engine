@@ -1,5 +1,6 @@
 import type {
   Phase,
+  Position,
   RuleEvaluationState,
   SimulationAction,
   SimulationEvent,
@@ -13,6 +14,11 @@ export interface UnitState {
   readonly ownerId: TeamId;
   readonly hp: number;
   readonly maxHp: number;
+  readonly position?: Position;
+  readonly actionPoints?: number;
+  readonly maxActionPoints?: number;
+  readonly cooldowns?: Readonly<Record<string, number>>;
+  readonly statusEffectIds?: readonly string[];
 }
 
 export type Action = SimulationAction;
@@ -66,7 +72,7 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
     }
 
     case 'ACTION_APPLIED': {
-      if (event.action.type === 'ATTACK' || event.action.type === 'PASS') {
+      if (event.action.type === 'ATTACK' || event.action.type === 'PASS' || event.action.type === 'MOVE') {
         return {
           ...state,
           pendingActions: [...state.pendingActions, event.action],
@@ -74,6 +80,24 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
       }
 
       return state;
+    }
+
+    case 'UNIT_MOVED': {
+      const unit = state.units[event.unitId];
+      if (!unit) {
+        return state;
+      }
+
+      return {
+        ...state,
+        units: {
+          ...state.units,
+          [unit.id]: {
+            ...unit,
+            position: event.to,
+          },
+        },
+      };
     }
 
     case 'UNIT_DAMAGED': {
@@ -92,6 +116,63 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
         units: {
           ...state.units,
           [target.id]: updatedTarget,
+        },
+      };
+    }
+
+    case 'STATUS_APPLIED': {
+      const target = state.units[event.targetId];
+      if (!target) {
+        return state;
+      }
+
+      return {
+        ...state,
+        units: {
+          ...state.units,
+          [target.id]: {
+            ...target,
+            statusEffectIds: [...(target.statusEffectIds ?? []), `${event.statusId}:${event.duration}`],
+          },
+        },
+      };
+    }
+
+    case 'ACTION_POINTS_CHANGED': {
+      const unit = state.units[event.unitId];
+      if (!unit) {
+        return state;
+      }
+
+      return {
+        ...state,
+        units: {
+          ...state.units,
+          [unit.id]: {
+            ...unit,
+            actionPoints: event.to,
+          },
+        },
+      };
+    }
+
+    case 'COOLDOWN_TICKED': {
+      const unit = state.units[event.unitId];
+      if (!unit) {
+        return state;
+      }
+
+      return {
+        ...state,
+        units: {
+          ...state.units,
+          [unit.id]: {
+            ...unit,
+            cooldowns: {
+              ...(unit.cooldowns ?? {}),
+              [event.abilityId]: event.to,
+            },
+          },
         },
       };
     }
@@ -134,6 +215,11 @@ export function toRuleEvaluationState(state: GameState, mapId: string): RuleEval
     teamId: unit.ownerId,
     health: unit.hp,
     maxHealth: unit.maxHp,
+    actionPoints: unit.actionPoints,
+    maxActionPoints: unit.maxActionPoints,
+    cooldowns: unit.cooldowns,
+    position: unit.position,
+    statusEffectIds: unit.statusEffectIds,
   }));
 
   return {

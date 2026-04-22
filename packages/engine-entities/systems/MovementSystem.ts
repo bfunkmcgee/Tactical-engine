@@ -1,3 +1,4 @@
+import type { GameEvent } from '../../engine-core/state/GameState';
 import { EntityStore, EntityId } from '../EntityStore';
 import { ACTION_POINTS_COMPONENT, ActionPoints } from '../components/ActionPoints';
 import { POSITION_COMPONENT, Position } from '../components/Position';
@@ -11,34 +12,68 @@ export interface MovementRequest {
 }
 
 export class MovementSystem {
-  move(store: EntityStore, request: MovementRequest): boolean {
+  collectEvents(store: EntityStore, request: MovementRequest, turn = 0, round = 0): readonly GameEvent[] {
     const position = store.getComponent<Position>(POSITION_COMPONENT, request.entityId);
     const actionPoints = store.getComponent<ActionPoints>(ACTION_POINTS_COMPONENT, request.entityId);
     const effectiveStats = computeEffectiveStats(store, request.entityId);
 
     if (!position || !actionPoints || !effectiveStats) {
-      return false;
+      return [];
     }
 
     const distance = Math.abs(request.dx) + Math.abs(request.dy);
     if (distance > effectiveStats.speed) {
-      return false;
+      return [];
     }
 
     const cost = request.actionPointCost ?? distance;
     if (cost < 0 || actionPoints.current < cost) {
+      return [];
+    }
+
+    const to = { x: position.x + request.dx, y: position.y + request.dy };
+
+    return [
+      {
+        kind: 'UNIT_MOVED',
+        unitId: request.entityId,
+        from: position,
+        to,
+        turn,
+        round,
+      },
+      {
+        kind: 'ACTION_POINTS_CHANGED',
+        unitId: request.entityId,
+        from: actionPoints.current,
+        to: actionPoints.current - cost,
+        reason: 'MOVE',
+        turn,
+        round,
+      },
+    ];
+  }
+
+  move(store: EntityStore, request: MovementRequest): boolean {
+    const events = this.collectEvents(store, request);
+    if (events.length === 0) {
       return false;
     }
 
-    store.upsertComponent<Position>(POSITION_COMPONENT, request.entityId, {
-      x: position.x + request.dx,
-      y: position.y + request.dy,
-    });
-
-    store.upsertComponent<ActionPoints>(ACTION_POINTS_COMPONENT, request.entityId, {
-      ...actionPoints,
-      current: actionPoints.current - cost,
-    });
+    for (const event of events) {
+      if (event.kind === 'UNIT_MOVED') {
+        store.upsertComponent<Position>(POSITION_COMPONENT, request.entityId, event.to);
+      }
+      if (event.kind === 'ACTION_POINTS_CHANGED') {
+        const current = store.getComponent<ActionPoints>(ACTION_POINTS_COMPONENT, request.entityId);
+        if (current) {
+          store.upsertComponent<ActionPoints>(ACTION_POINTS_COMPONENT, request.entityId, {
+            ...current,
+            current: event.to,
+          });
+        }
+      }
+    }
 
     return true;
   }
