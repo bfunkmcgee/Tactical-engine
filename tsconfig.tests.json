@@ -11,10 +11,10 @@
   },
   "include": [
     "packages/**/*.ts",
-    "packages/**/*.d.ts"
+    "packages/**/*.d.ts",
+    "apps/web-client/src/ui/input/**/*.ts"
   ],
   "exclude": [
-    "apps/**",
     "node_modules/**",
     ".tmp-test-dist/**"
   ]
