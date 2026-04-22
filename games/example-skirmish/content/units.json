@@ -1,20 +1,56 @@
 [
   {
-    "id": "infantry",
-    "name": "Infantry",
+    "id": "alliance_infantry",
+    "name": "Alliance Infantry",
     "factionId": "alliance",
     "maxHealth": 100,
     "movement": 3,
     "attackRange": 1,
-    "abilityIds": ["rifle_shot"]
+    "abilityIds": ["rifle_shot", "suppressing_fire"]
   },
   {
-    "id": "sniper",
-    "name": "Sniper",
+    "id": "alliance_sniper",
+    "name": "Alliance Sniper",
     "factionId": "alliance",
     "maxHealth": 75,
     "movement": 2,
     "attackRange": 4,
     "abilityIds": ["aimed_shot"]
+  },
+  {
+    "id": "alliance_medic",
+    "name": "Alliance Medic",
+    "factionId": "alliance",
+    "maxHealth": 82,
+    "movement": 3,
+    "attackRange": 2,
+    "abilityIds": ["medic_burst", "rifle_shot"]
+  },
+  {
+    "id": "raider_brute",
+    "name": "Raider Brute",
+    "factionId": "raiders",
+    "maxHealth": 120,
+    "movement": 2,
+    "attackRange": 1,
+    "abilityIds": ["gravity_well", "rifle_shot"]
+  },
+  {
+    "id": "raider_skirmisher",
+    "name": "Raider Skirmisher",
+    "factionId": "raiders",
+    "maxHealth": 88,
+    "movement": 4,
+    "attackRange": 2,
+    "abilityIds": ["suppressing_fire", "rifle_shot"]
+  },
+  {
+    "id": "nomad_warden",
+    "name": "Nomad Warden",
+    "factionId": "nomads",
+    "maxHealth": 96,
+    "movement": 3,
+    "attackRange": 3,
+    "abilityIds": ["gravity_well", "aimed_shot"]
   }
 ]

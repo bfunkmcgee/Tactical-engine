@@ -1,0 +1,5 @@
+[
+  { "id": "alliance", "name": "Alliance", "unitIds": ["alliance_infantry", "alliance_sniper", "alliance_medic"] },
+  { "id": "raiders", "name": "Raiders", "unitIds": ["raider_brute", "raider_skirmisher"] },
+  { "id": "nomads", "name": "Nomads", "unitIds": ["nomad_warden"] }
+]
