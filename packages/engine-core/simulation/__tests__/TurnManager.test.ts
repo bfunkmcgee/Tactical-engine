@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
-import { TurnManager } from '../TurnManager';
-import { createInitialState, type GameState } from '../../state/GameState';
+import { TeamTurnScheduler, TurnManager, UnitTurnScheduler } from '../TurnManager';
+import { createInitialState, getActiveActorId, type GameState } from '../../state/GameState';
 
 function createState(partial?: Partial<GameState>): GameState {
   return {
@@ -16,10 +16,10 @@ function createState(partial?: Partial<GameState>): GameState {
   };
 }
 
-const manager = new TurnManager();
+const manager = new TurnManager(new TeamTurnScheduler());
 
 test('TurnManager emits integrity violation for empty players', () => {
-  const state = createState({ players: [], activeActorId: 'ghost' });
+  const state = createState({ players: [], activeActivationSlot: { id: 'team:ghost', entityId: 'ghost', teamId: 'ghost' } });
   const result = manager.advancePhaseWithEvents(state);
 
   assert.equal(result.events.length, 1);
@@ -28,21 +28,36 @@ test('TurnManager emits integrity violation for empty players', () => {
 });
 
 test('TurnManager recovers invalid active actor before advancing', () => {
-  const state = createState({ phase: 'COMMAND', activeActorId: 'ghost' });
+  const state = createState({ phase: 'COMMAND', activeActivationSlot: { id: 'team:ghost', entityId: 'ghost', teamId: 'ghost' } });
   const result = manager.advancePhaseWithEvents(state);
 
   assert.deepEqual(result.events.map((event) => event.kind), ['INTEGRITY_VIOLATION', 'PHASE_ADVANCED']);
-  assert.equal(result.state.activeActorId, 'A');
+  assert.equal(getActiveActorId(result.state), 'A');
   assert.equal(result.state.phase, 'RESOLUTION');
 });
 
 test('TurnManager wraps turns and rounds at end of turn', () => {
-  const state = createState({ phase: 'END_TURN', activeActorId: 'B', turn: 5, round: 3 });
+  const state = createState({ phase: 'END_TURN', activeActivationSlot: { id: 'team:B', entityId: 'B', teamId: 'B' }, turn: 5, round: 3 });
   const result = manager.advancePhaseWithEvents(state);
 
   assert.deepEqual(result.events.map((event) => event.kind), ['PHASE_ADVANCED', 'TURN_STARTED']);
   assert.equal(result.state.turn, 6);
   assert.equal(result.state.round, 4);
-  assert.equal(result.state.activeActorId, 'A');
+  assert.equal(getActiveActorId(result.state), 'A');
   assert.equal(result.state.phase, 'START_TURN');
+});
+
+test('TurnManager supports unit-turn scheduler variant', () => {
+  const state = createState({
+    phase: 'END_TURN',
+    activeActivationSlot: { id: 'unit:u-a', entityId: 'u-a', teamId: 'A' },
+    turn: 2,
+    round: 1,
+  });
+  const unitManager = new TurnManager(new UnitTurnScheduler());
+  const result = unitManager.advancePhaseWithEvents(state);
+
+  assert.deepEqual(result.events.map((event) => event.kind), ['PHASE_ADVANCED', 'TURN_STARTED']);
+  assert.equal(getActiveActorId(result.state), 'u-b');
+  assert.equal(result.state.activeActivationSlot.teamId, 'B');
 });

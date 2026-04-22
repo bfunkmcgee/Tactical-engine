@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
-import { createInitialState, toRuleEvaluationState, type Action } from '../../state/GameState';
+import { createInitialState, getActiveActorId, toRuleEvaluationState, type Action } from '../../state/GameState';
 import { Engine } from '../Engine';
 import { EntityStore } from '../../../engine-entities/EntityStore';
 import { ACTION_POINTS_COMPONENT } from '../../../engine-entities/components/ActionPoints';
@@ -60,7 +60,7 @@ test('integration: engine + entity systems + rules sdk share one event contract'
       ],
     ),
     phase: 'COMMAND' as const,
-    activeActorId: 'A',
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
   };
 
   const battleState = toRuleEvaluationState(state, 'integration');
@@ -90,6 +90,6 @@ test('integration: engine + entity systems + rules sdk share one event contract'
   };
 
   const nextTurn = engine.step(attackResult.state, endCommand);
-  assert.equal(nextTurn.state.activeActorId, 'B');
+  assert.equal(getActiveActorId(nextTurn.state), 'B');
   assert.equal(nextTurn.state.phase, 'COMMAND');
 });

@@ -1,5 +1,6 @@
 import {
   appendEvents,
+  getActiveActorId,
   reduceEvents,
   type Action,
   type GameEvent,
@@ -88,7 +89,7 @@ export class ActionResolver {
       return {
         isValid: false,
         reason: 'NO_LEGAL_ACTIONS_FOR_ACTOR',
-        details: { actorId: action.actorId, activeActorId: state.activeActorId, phase: state.phase },
+        details: { actorId: action.actorId, activeActorId: getActiveActorId(state), phase: state.phase },
       };
     }
 
@@ -176,15 +177,16 @@ export class ActionResolver {
   }
 
   public getLegalActions(state: GameState, actorId: string): Action[] {
-    if (state.activeActorId !== actorId) {
+    if (getActiveActorId(state) !== actorId) {
       return [];
     }
 
     switch (state.phase) {
       case 'COMMAND': {
         const actorUnit = this.findActorUnit(state, actorId);
+        const actorTeamId = actorUnit?.ownerId ?? actorId;
         const attackActions: Action[] = Object.values(state.units)
-          .filter((unit) => unit.ownerId !== actorId && unit.hp > 0)
+          .filter((unit) => unit.ownerId !== actorTeamId && unit.hp > 0)
           .sort((left, right) => left.id.localeCompare(right.id))
           .map((target) => ({
             id: `attack:${actorId}:${target.id}`,
@@ -740,7 +742,7 @@ export class ActionResolver {
   }
 
   private findActorUnit(state: GameState, actorId: string): UnitState | undefined {
-    return Object.values(state.units).find((unit) => unit.ownerId === actorId && unit.hp > 0);
+    return state.units[actorId] ?? Object.values(state.units).find((unit) => unit.ownerId === actorId && unit.hp > 0);
   }
 
   private isOutOfRange(actorUnit: UnitState, targetUnit: UnitState, action: Action): boolean {

@@ -1,5 +1,6 @@
 export type UnitId = string;
 export type TeamId = string;
+export type ActivationId = string;
 
 export type Phase = 'START_TURN' | 'COMMAND' | 'RESOLUTION' | 'END_TURN';
 
@@ -75,9 +76,30 @@ export type ActionPayload =
 
 export interface SimulationAction {
   readonly id: string;
-  readonly actorId: TeamId;
+  readonly actorId: ActivationId;
   readonly type: ActionType;
   readonly payload?: ActionPayload;
+}
+
+export interface ActivationSlot {
+  readonly id: string;
+  readonly entityId: ActivationId;
+  readonly teamId?: TeamId;
+  readonly label?: string;
+}
+
+export interface TurnScheduler {
+  getInitialSlot(state: SchedulerStateSnapshot): ActivationSlot;
+  getNextSlot(state: SchedulerStateSnapshot, currentSlot: ActivationSlot): ActivationSlot;
+  isSlotValid(state: SchedulerStateSnapshot, slot: ActivationSlot): boolean;
+}
+
+export interface SchedulerStateSnapshot {
+  readonly players: readonly TeamId[];
+  readonly units: readonly SimulationUnit[];
+  readonly turn: number;
+  readonly round: number;
+  readonly phase: Phase;
 }
 
 export type SimulationEvent =
@@ -90,7 +112,8 @@ export type SimulationEvent =
     }
   | {
       readonly kind: 'TURN_STARTED';
-      readonly actorId: TeamId;
+      readonly actorId?: ActivationId;
+      readonly activationSlot?: ActivationSlot;
       readonly turn: number;
       readonly round: number;
     }

@@ -1,7 +1,9 @@
 import type {
+  ActivationSlot,
   Phase,
   Position,
   RuleEvaluationState,
+  SchedulerStateSnapshot,
   SimulationAction,
   SimulationEvent,
   SimulationUnit,
@@ -28,7 +30,7 @@ export type GameEvent = SimulationEvent;
 export interface GameState {
   readonly round: number;
   readonly turn: number;
-  readonly activeActorId: TeamId;
+  readonly activeActivationSlot: ActivationSlot;
   readonly phase: Phase;
   readonly players: readonly TeamId[];
   readonly units: Readonly<Record<UnitId, UnitState>>;
@@ -62,9 +64,20 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
     }
 
     case 'TURN_STARTED': {
+      const activationSlot =
+        event.activationSlot ??
+        (event.actorId
+          ? {
+              id: `team:${event.actorId}`,
+              entityId: event.actorId,
+              teamId: event.actorId,
+              label: `Team ${event.actorId}`,
+            }
+          : state.activeActivationSlot);
+
       return {
         ...state,
-        activeActorId: event.actorId,
+        activeActivationSlot: activationSlot,
         turn: event.turn,
         round: event.round,
         phase: 'START_TURN',
@@ -225,7 +238,12 @@ export function createInitialState(players: readonly TeamId[], units: readonly U
   return {
     round: 1,
     turn: 1,
-    activeActorId: firstActor,
+    activeActivationSlot: {
+      id: `team:${firstActor}`,
+      entityId: firstActor,
+      teamId: firstActor,
+      label: `Team ${firstActor}`,
+    },
     phase: 'START_TURN',
     players: [...players],
     units: unitMap,
@@ -247,12 +265,42 @@ export function toRuleEvaluationState(state: GameState, mapId: string): RuleEval
     statusEffectIds: unit.statusEffectIds,
   }));
 
+  const activeTeamId =
+    state.activeActivationSlot.teamId ??
+    units.find((unit) => unit.id === state.activeActivationSlot.entityId)?.teamId ??
+    state.players[0] ??
+    '';
+
   return {
     turn: state.turn,
     round: state.round,
-    activeTeamId: state.activeActorId,
+    activeTeamId,
     phase: state.phase,
     mapId,
     units,
+  };
+}
+
+export function getActiveActorId(state: GameState): string {
+  return state.activeActivationSlot.entityId;
+}
+
+export function toSchedulerStateSnapshot(state: GameState): SchedulerStateSnapshot {
+  return {
+    players: [...state.players],
+    units: Object.values(state.units).map((unit) => ({
+      id: unit.id,
+      teamId: unit.ownerId,
+      health: unit.hp,
+      maxHealth: unit.maxHp,
+      actionPoints: unit.actionPoints,
+      maxActionPoints: unit.maxActionPoints,
+      cooldowns: unit.cooldowns,
+      position: unit.position ?? (unit.spatialRef ? { x: unit.spatialRef.q, y: unit.spatialRef.r } : undefined),
+      statusEffectIds: unit.statusEffectIds,
+    })),
+    turn: state.turn,
+    round: state.round,
+    phase: state.phase,
   };
 }
