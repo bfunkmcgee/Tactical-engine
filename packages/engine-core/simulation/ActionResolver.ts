@@ -47,6 +47,11 @@ interface UseItemCandidatePayload {
   readonly targetId?: string;
 }
 
+interface GridTargetPayload {
+  readonly x: number;
+  readonly y: number;
+}
+
 const ATTACK_PAYLOAD_KEYS: readonly string[] = ['amount', 'targetId'];
 const END_COMMAND_PAYLOAD_KEYS: readonly string[] = ['reason'];
 const PASS_PAYLOAD_KEYS: readonly string[] = ['phase'];
@@ -636,7 +641,7 @@ export class ActionResolver {
       return undefined;
     }
 
-    const normalizedAmount = amountValue === undefined ? 1 : (amountValue as number);
+    const normalizedAmount = amountValue === undefined ? 1 : amountValue;
     return {
       targetId: record.targetId,
       amount: normalizedAmount,
@@ -667,14 +672,8 @@ export class ActionResolver {
       return undefined;
     }
 
-    const to = this.toRecord(record.to as Action['payload']);
-    if (
-      !to ||
-      typeof to.x !== 'number' ||
-      !Number.isInteger(to.x) ||
-      typeof to.y !== 'number' ||
-      !Number.isInteger(to.y)
-    ) {
+    const to = this.toGridTarget(record.to);
+    if (!to) {
       return undefined;
     }
 
@@ -691,7 +690,11 @@ export class ActionResolver {
       return undefined;
     }
 
-    return { unitId: record.unitId, abilityId: record.abilityId, targetId: record.targetId as string | undefined };
+    return {
+      unitId: record.unitId,
+      abilityId: record.abilityId,
+      targetId: typeof record.targetId === 'string' ? record.targetId : undefined,
+    };
   }
 
   private toUseItemCandidatePayload(payload: Action['payload']): UseItemCandidatePayload | undefined {
@@ -704,15 +707,36 @@ export class ActionResolver {
       return undefined;
     }
 
-    return { unitId: record.unitId, itemId: record.itemId, targetId: record.targetId as string | undefined };
+    return {
+      unitId: record.unitId,
+      itemId: record.itemId,
+      targetId: typeof record.targetId === 'string' ? record.targetId : undefined,
+    };
   }
 
   private toRecord(payload: Action['payload']): Record<string, unknown> | undefined {
-    if (!payload || typeof payload !== 'object') {
+    if (!this.isPlainRecord(payload)) {
       return undefined;
     }
 
-    return payload as Record<string, unknown>;
+    return payload;
+  }
+
+  private toGridTarget(value: unknown): GridTargetPayload | undefined {
+    if (!this.isPlainRecord(value)) {
+      return undefined;
+    }
+
+    const { x, y } = value;
+    if (typeof x !== 'number' || !Number.isInteger(x) || typeof y !== 'number' || !Number.isInteger(y)) {
+      return undefined;
+    }
+
+    return { x, y };
+  }
+
+  private isPlainRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object';
   }
 
   private findActorUnit(state: GameState, actorId: string): UnitState | undefined {

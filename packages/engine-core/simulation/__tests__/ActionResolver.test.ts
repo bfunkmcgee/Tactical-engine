@@ -86,6 +86,9 @@ test('ActionResolver generates legal MOVE actions and emits UNIT_MOVED', () => {
   const state = createState();
   const moveAction = resolver.getLegalActions(state, 'A').find((action) => action.type === 'MOVE');
   assert.ok(moveAction);
+  if (!moveAction) {
+    return;
+  }
 
   const result = resolver.applyAction(state, moveAction);
   assert.deepEqual(
@@ -98,6 +101,9 @@ test('ActionResolver generates legal USE_ABILITY actions and emits ABILITY_USED'
   const state = createState();
   const useAbilityAction = resolver.getLegalActions(state, 'A').find((action) => action.type === 'USE_ABILITY');
   assert.ok(useAbilityAction);
+  if (!useAbilityAction) {
+    return;
+  }
 
   const result = resolver.applyAction(state, useAbilityAction);
   assert.deepEqual(
@@ -110,6 +116,9 @@ test('ActionResolver generates legal USE_ITEM actions and emits ITEM_USED', () =
   const state = createState();
   const useItemAction = resolver.getLegalActions(state, 'A').find((action) => action.type === 'USE_ITEM');
   assert.ok(useItemAction);
+  if (!useItemAction) {
+    return;
+  }
 
   const result = resolver.applyAction(state, useItemAction);
   assert.deepEqual(
