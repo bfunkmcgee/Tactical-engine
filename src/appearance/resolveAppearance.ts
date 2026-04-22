@@ -20,6 +20,23 @@ function uniqueSortedLayers(layers: VisualLayerRef[]): VisualLayerRef[] {
   return deduped.sort((a, b) => a.zIndex - b.zIndex);
 }
 
+function validateAnimationRigCompatibility(
+  animationSetId: string,
+  resolvedBodyRigProfileId: string,
+  registry: AppearanceRegistry,
+): void {
+  const animationSet = registry.animationSets[animationSetId];
+  if (!animationSet) {
+    return;
+  }
+
+  if (animationSet.rigProfileId !== resolvedBodyRigProfileId) {
+    throw new Error(
+      `Animation set '${animationSet.id}' requires rig '${animationSet.rigProfileId}', but body rig is '${resolvedBodyRigProfileId}'.`,
+    );
+  }
+}
+
 export function resolveAppearance(
   context: ActorAppearanceContext,
   registry: AppearanceRegistry,
@@ -27,6 +44,13 @@ export function resolveAppearance(
   const bodyType = registry.bodyTypes[context.bodyTypeId];
   if (!bodyType) {
     throw new Error(`Unknown body type: ${context.bodyTypeId}`);
+  }
+
+  const rigProfile = registry.rigProfiles[bodyType.rigProfileId];
+  if (!rigProfile) {
+    throw new Error(
+      `Body type '${bodyType.id}' references unknown rig profile '${bodyType.rigProfileId}'.`,
+    );
   }
 
   const warnings: string[] = [];
@@ -87,6 +111,12 @@ export function resolveAppearance(
     resolvedAnimationSetId = context.animationSetId;
   }
 
+  validateAnimationRigCompatibility(
+    resolvedAnimationSetId,
+    rigProfile.id,
+    registry,
+  );
+
   const overrideLayers = context.overrideAppearance?.visualLayers ?? [];
   const statusLayers =
     context.statusEffects?.
@@ -103,7 +133,7 @@ export function resolveAppearance(
   return {
     actorId: context.actorId,
     bodyTypeId: bodyType.id,
-    rigProfileId: bodyType.rigProfileId,
+    rigProfileId: rigProfile.id,
     animationSetId: resolvedAnimationSetId,
     hiddenSlots: [...hiddenSlots],
     layers,
