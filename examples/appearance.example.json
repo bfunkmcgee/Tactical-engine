@@ -1,0 +1,43 @@
+{
+  "bodyTypes": {
+    "humanoid_medium": {
+      "id": "humanoid_medium",
+      "name": "Humanoid Medium",
+      "tags": ["humanoid", "medium"],
+      "rigProfileId": "rig_humanoid_a",
+      "defaultVisualLayers": [
+        { "assetId": "body/human_base", "zIndex": 0 }
+      ],
+      "defaultSlotBindings": [
+        { "slot": "head", "anchorKey": "head_anchor", "defaultLayerOrder": 30 },
+        { "slot": "chest", "anchorKey": "torso_anchor", "defaultLayerOrder": 20 },
+        { "slot": "mainHand", "anchorKey": "weapon_r_anchor", "defaultLayerOrder": 40 }
+      ]
+    }
+  },
+  "animationSets": {
+    "anim_humanoid_basic": {
+      "id": "anim_humanoid_basic",
+      "name": "Humanoid Basic",
+      "rigProfileId": "rig_humanoid_a",
+      "clips": {
+        "idle": { "clipId": "idle_01", "loop": true },
+        "move": { "clipId": "run_01", "loop": true },
+        "attack": { "clipId": "attack_slash_01" },
+        "cast": { "clipId": "cast_01" },
+        "hit": { "clipId": "hit_01" },
+        "death": { "clipId": "death_01" }
+      }
+    }
+  },
+  "gearVisuals": {
+    "gear_iron_helmet": {
+      "id": "gear_iron_helmet",
+      "slot": "head",
+      "compatibleBodyTags": ["humanoid"],
+      "visualLayers": [
+        { "assetId": "gear/helmet_iron", "zIndex": 35 }
+      ]
+    }
+  }
+}
