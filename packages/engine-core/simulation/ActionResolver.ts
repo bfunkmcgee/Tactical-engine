@@ -1,4 +1,11 @@
-import { appendEvents, reduceEvents, type Action, type GameEvent, type GameState, type StateTransitionResult } from '../state/GameState';
+import {
+  appendEvents,
+  reduceEvents,
+  type Action,
+  type GameEvent,
+  type GameState,
+  type StateTransitionResult,
+} from '../state/GameState';
 
 export class ActionResolver {
   public applyAction(state: GameState, action: Action): StateTransitionResult {
@@ -19,8 +26,9 @@ export class ActionResolver {
     ];
 
     if (action.type === 'ATTACK') {
-      const amount = Math.max(0, action.payload?.amount ?? 1);
-      const targetId = action.payload?.targetId;
+      const payload = action.payload && 'targetId' in action.payload ? action.payload : undefined;
+      const amount = Math.max(0, payload?.amount ?? 1);
+      const targetId = payload?.targetId;
 
       if (targetId) {
         events.push({
@@ -75,6 +83,7 @@ export class ActionResolver {
             id: `pass:${actorId}:${state.phase}`,
             actorId,
             type: 'PASS',
+            payload: { phase: state.phase },
           },
         ];
 

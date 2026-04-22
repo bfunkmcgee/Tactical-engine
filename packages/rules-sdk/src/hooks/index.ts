@@ -1,5 +1,6 @@
-export type UnitId = string;
-export type TeamId = string;
+import type { TeamId, UnitId } from '../../../engine-core/state/SimulationContract';
+
+export type { TeamId, UnitId };
 export type AbilityId = string;
 
 export interface LifecycleContext {

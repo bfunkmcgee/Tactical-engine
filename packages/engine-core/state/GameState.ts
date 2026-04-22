@@ -1,58 +1,30 @@
-export type Phase = 'START_TURN' | 'COMMAND' | 'RESOLUTION' | 'END_TURN';
+import type {
+  Phase,
+  RuleEvaluationState,
+  SimulationAction,
+  SimulationEvent,
+  SimulationUnit,
+  TeamId,
+  UnitId,
+} from './SimulationContract';
 
 export interface UnitState {
-  readonly id: string;
-  readonly ownerId: string;
+  readonly id: UnitId;
+  readonly ownerId: TeamId;
   readonly hp: number;
   readonly maxHp: number;
 }
 
-export interface Action {
-  readonly id: string;
-  readonly actorId: string;
-  readonly type: 'END_COMMAND' | 'ATTACK' | 'PASS';
-  readonly payload?: {
-    readonly targetId?: string;
-    readonly amount?: number;
-  };
-}
-
-export type GameEvent =
-  | {
-      readonly kind: 'PHASE_ADVANCED';
-      readonly from: Phase;
-      readonly to: Phase;
-      readonly turn: number;
-      readonly round: number;
-    }
-  | {
-      readonly kind: 'TURN_STARTED';
-      readonly actorId: string;
-      readonly turn: number;
-      readonly round: number;
-    }
-  | {
-      readonly kind: 'ACTION_APPLIED';
-      readonly action: Action;
-      readonly turn: number;
-      readonly round: number;
-    }
-  | {
-      readonly kind: 'UNIT_DAMAGED';
-      readonly sourceId: string;
-      readonly targetId: string;
-      readonly amount: number;
-      readonly turn: number;
-      readonly round: number;
-    };
+export type Action = SimulationAction;
+export type GameEvent = SimulationEvent;
 
 export interface GameState {
   readonly round: number;
   readonly turn: number;
-  readonly activeActorId: string;
+  readonly activeActorId: TeamId;
   readonly phase: Phase;
-  readonly players: readonly string[];
-  readonly units: Readonly<Record<string, UnitState>>;
+  readonly players: readonly TeamId[];
+  readonly units: Readonly<Record<UnitId, UnitState>>;
   readonly pendingActions: readonly Action[];
   readonly eventLog: readonly GameEvent[];
 }
@@ -133,9 +105,9 @@ export function reduceEvents(state: GameState, events: readonly GameEvent[]): Ga
   return events.reduce((acc, event) => reduceState(acc, event), state);
 }
 
-export function createInitialState(players: readonly string[], units: readonly UnitState[]): GameState {
+export function createInitialState(players: readonly TeamId[], units: readonly UnitState[]): GameState {
   const firstActor = players[0] ?? '';
-  const unitMap = units.reduce<Record<string, UnitState>>((acc, unit) => {
+  const unitMap = units.reduce<Record<UnitId, UnitState>>((acc, unit) => {
     acc[unit.id] = unit;
     return acc;
   }, {});
@@ -149,5 +121,23 @@ export function createInitialState(players: readonly string[], units: readonly U
     units: unitMap,
     pendingActions: [],
     eventLog: [],
+  };
+}
+
+export function toRuleEvaluationState(state: GameState, mapId: string): RuleEvaluationState {
+  const units: SimulationUnit[] = Object.values(state.units).map((unit) => ({
+    id: unit.id,
+    teamId: unit.ownerId,
+    health: unit.hp,
+    maxHealth: unit.maxHp,
+  }));
+
+  return {
+    turn: state.turn,
+    round: state.round,
+    activeTeamId: state.activeActorId,
+    phase: state.phase,
+    mapId,
+    units,
   };
 }
