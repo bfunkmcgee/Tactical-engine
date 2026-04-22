@@ -7,12 +7,21 @@
     "noEmit": false,
     "outDir": ".tmp-test-dist",
     "rootDir": ".",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
     "packages/**/*.ts",
     "packages/**/*.d.ts",
-    "apps/web-client/src/ui/input/**/*.ts"
+    "apps/web-client/src/**/*.ts",
+    "apps/web-client/src/**/*.tsx"
   ],
   "exclude": [
     "node_modules/**",

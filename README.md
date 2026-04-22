@@ -41,6 +41,7 @@ npm install --prefix apps/web-client
 Run these from repository root:
 
 ```bash
+npm run check:test-scope
 npm run typecheck
 npm run build:test-artifacts
 npm run test
@@ -49,10 +50,11 @@ npm run ci
 
 What they do:
 
-- `typecheck` validates TypeScript across engine, packages, apps, and tests via `tsconfig.tests.json`.
-- `build:test-artifacts` compiles test-targeted artifacts into `.tmp-test-dist`.
-- `test` builds test artifacts and runs Node test suites.
-- `ci` runs the local CI gate (`typecheck` + `test`).
+- `check:test-scope` guards CI scope by ensuring major app source globs remain included in `tsconfig.tests.json`.
+- `typecheck` validates TypeScript across engine, packages, app source, and tests via `tsconfig.tests.json`.
+- `build:test-artifacts` compiles test-targeted artifacts into `.tmp-test-dist` for packages and app source.
+- `test` builds test artifacts and runs Node test suites discovered from compiled package/app outputs.
+- `ci` runs the local CI gate (`check:test-scope` + `typecheck` + `test`).
 
 ## App-specific commands (`apps/web-client`)
 
