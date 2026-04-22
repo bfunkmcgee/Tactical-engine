@@ -1,0 +1,20 @@
+{
+  "version": "0.1.0",
+  "units": [
+    {
+      "id": "scout",
+      "name": "Scout",
+      "hp": 8,
+      "movement": 6,
+      "actions": ["move", "spot"]
+    }
+  ],
+  "maps": [
+    {
+      "id": "arena-alpha",
+      "width": 12,
+      "height": 12,
+      "blockedTiles": [[3, 3], [3, 4], [4, 4]]
+    }
+  ]
+}

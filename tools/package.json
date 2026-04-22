@@ -1,0 +1,13 @@
+{
+  "name": "@tactical/tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "validate:content": "tsx validate-content.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.3"
+  }
+}
