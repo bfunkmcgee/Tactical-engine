@@ -100,6 +100,7 @@ export interface ActorAppearanceContext {
 
 export interface AppearanceRegistry {
   bodyTypes: Record<Id, BodyTypeDef>;
+  rigProfiles: Record<Id, RigProfileDef>;
   animationSets: Record<Id, AnimationSetDef>;
   gearVisuals: Record<Id, GearVisualDef>;
 }
