@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": false,
+    "noEmit": false,
+    "outDir": ".tmp-test-dist",
+    "rootDir": ".",
+    "skipLibCheck": true
+  },
+  "include": [
+    "packages/**/*.ts",
+    "packages/**/*.d.ts"
+  ],
+  "exclude": [
+    "apps/**",
+    "node_modules/**",
+    ".tmp-test-dist/**"
+  ]
+}
