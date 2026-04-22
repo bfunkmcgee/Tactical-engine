@@ -12,7 +12,7 @@ function createState(partial?: Partial<GameState>): GameState {
   return {
     ...createInitialState(['A', 'B'], units),
     phase: 'COMMAND',
-    activeActorId: 'A',
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
     ...partial,
   };
 }

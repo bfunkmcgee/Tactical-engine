@@ -7,7 +7,7 @@ function createSpatialState(units: UnitState[]): GameState {
   return {
     ...createInitialState(['A', 'B'], units),
     phase: 'COMMAND',
-    activeActorId: 'A',
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
   };
 }
 

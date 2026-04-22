@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
-import { createInitialState, reduceEvents, reduceState, type GameEvent } from '../GameState';
+import { createInitialState, getActiveActorId, reduceEvents, reduceState, type GameEvent } from '../GameState';
 
 test('reduceState ignores damage for unknown target', () => {
   const state = createInitialState(['A', 'B'], [{ id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10 }]);
@@ -56,7 +56,7 @@ test('reduceEvents applies order and clamps hp floor to 0', () => {
   const next = reduceEvents(state, events);
   assert.equal(next.units['u-b']?.hp, 0);
   assert.deepEqual(next.pendingActions, []);
-  assert.equal(next.activeActorId, 'B');
+  assert.equal(getActiveActorId(next), 'B');
   assert.equal(next.turn, 2);
 });
 
