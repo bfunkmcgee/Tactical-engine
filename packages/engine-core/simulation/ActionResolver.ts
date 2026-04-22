@@ -119,9 +119,9 @@ export class ActionResolver {
       case 'END_COMMAND':
         return this.validateEndCommandAction(action, legalActions.filter((candidate) => candidate.type === 'END_COMMAND'));
       case 'MOVE':
-        return this.validateMoveAction(action, legalActions.filter((candidate) => candidate.type === 'MOVE'));
+        return this.validateMoveAction(state, action, legalActions.filter((candidate) => candidate.type === 'MOVE'));
       case 'USE_ABILITY':
-        return this.validateUseAbilityAction(action, legalActions.filter((candidate) => candidate.type === 'USE_ABILITY'));
+        return this.validateUseAbilityAction(state, action, legalActions.filter((candidate) => candidate.type === 'USE_ABILITY'));
       case 'USE_ITEM':
         return this.validateUseItemAction(action, legalActions.filter((candidate) => candidate.type === 'USE_ITEM'));
       case 'PASS':
@@ -238,11 +238,19 @@ export class ActionResolver {
       };
     }
 
-    if (!this.targetHasValidOccupancy(state, target)) {
+    if (!this.hasSpatialPosition(actorUnit)) {
       return {
         isValid: false,
-        reason: 'ATTACK_TARGET_OCCUPANCY_INVALID',
-        details: { targetId },
+        reason: 'MISSING_SOURCE_POSITION',
+        details: { actorId: action.actorId, sourceUnitId: actorUnit.id, actionType: action.type },
+      };
+    }
+
+    if (!this.hasSpatialPosition(target)) {
+      return {
+        isValid: false,
+        reason: 'MISSING_TARGET_POSITION',
+        details: { actorId: action.actorId, targetId, actionType: action.type },
       };
     }
 
@@ -358,11 +366,7 @@ export class ActionResolver {
         };
   }
 
-  private validateMoveAction(action: Action, legalActions: Action[]): ActionValidationResult {
-    if (legalActions.length === 0) {
-      return { isValid: false, reason: 'MOVE_NOT_LEGAL_IN_PHASE' };
-    }
-
+  private validateMoveAction(state: GameState, action: Action, legalActions: Action[]): ActionValidationResult {
     const payload = this.toRecord(action.payload);
     if (!payload) {
       return { isValid: false, reason: 'INVALID_MOVE_PAYLOAD_TYPE' };
@@ -375,7 +379,23 @@ export class ActionResolver {
 
     const normalized = this.toMoveCandidatePayload(action.payload);
     if (!normalized) {
+      if (payload.to === undefined) {
+        return { isValid: false, reason: 'MISSING_TARGET_POSITION', details: { actorId: action.actorId, actionType: action.type } };
+      }
       return { isValid: false, reason: 'MOVE_PAYLOAD_INVALID' };
+    }
+
+    const sourceUnit = state.units[normalized.unitId];
+    if (!sourceUnit || !this.hasSpatialPosition(sourceUnit)) {
+      return {
+        isValid: false,
+        reason: 'MISSING_SOURCE_POSITION',
+        details: { actorId: action.actorId, sourceUnitId: normalized.unitId, actionType: action.type },
+      };
+    }
+
+    if (legalActions.length === 0) {
+      return { isValid: false, reason: 'MOVE_NOT_LEGAL_IN_PHASE' };
     }
 
     const hasMatch = legalActions.some(
@@ -389,11 +409,7 @@ export class ActionResolver {
     return hasMatch ? { isValid: true } : { isValid: false, reason: 'MOVE_NOT_FOUND_IN_LEGAL_ACTIONS' };
   }
 
-  private validateUseAbilityAction(action: Action, legalActions: Action[]): ActionValidationResult {
-    if (legalActions.length === 0) {
-      return { isValid: false, reason: 'USE_ABILITY_NOT_LEGAL_IN_PHASE' };
-    }
-
+  private validateUseAbilityAction(state: GameState, action: Action, legalActions: Action[]): ActionValidationResult {
     const payload = this.toRecord(action.payload);
     if (!payload) {
       return { isValid: false, reason: 'INVALID_USE_ABILITY_PAYLOAD_TYPE' };
@@ -407,6 +423,30 @@ export class ActionResolver {
     const normalized = this.toUseAbilityCandidatePayload(action.payload);
     if (!normalized) {
       return { isValid: false, reason: 'USE_ABILITY_PAYLOAD_INVALID' };
+    }
+
+    const sourceUnit = state.units[normalized.unitId];
+    if (!sourceUnit || !this.hasSpatialPosition(sourceUnit)) {
+      return {
+        isValid: false,
+        reason: 'MISSING_SOURCE_POSITION',
+        details: { actorId: action.actorId, sourceUnitId: normalized.unitId, actionType: action.type },
+      };
+    }
+
+    if (normalized.targetId) {
+      const targetUnit = state.units[normalized.targetId];
+      if (!targetUnit || !this.hasSpatialPosition(targetUnit)) {
+        return {
+          isValid: false,
+          reason: 'MISSING_TARGET_POSITION',
+          details: { actorId: action.actorId, targetId: normalized.targetId, actionType: action.type },
+        };
+      }
+    }
+
+    if (legalActions.length === 0) {
+      return { isValid: false, reason: 'USE_ABILITY_NOT_LEGAL_IN_PHASE' };
     }
 
     const hasMatch = legalActions.some(
@@ -921,20 +961,8 @@ export class ActionResolver {
     return los.query(actorPosition, targetPosition).visible;
   }
 
-  private targetHasValidOccupancy(state: GameState, targetUnit: UnitState): boolean {
-    const targetCell = this.toCell(targetUnit);
-    if (!targetCell) {
-      return false;
-    }
-
-    return Object.values(state.units).some((unit) => {
-      if (unit.id !== targetUnit.id || unit.hp <= 0) {
-        return false;
-      }
-
-      const cell = this.toCell(unit);
-      return Boolean(cell && cell.q === targetCell.q && cell.r === targetCell.r);
-    });
+  private hasSpatialPosition(unit: UnitState): boolean {
+    return this.toCell(unit) !== undefined;
   }
 
   private toCell(unit: UnitState): { q: number; r: number } | undefined {

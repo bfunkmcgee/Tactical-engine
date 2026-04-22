@@ -17,6 +17,8 @@ const INITIAL_UNITS: UnitState[] = Array.from({ length: 80 }, (_, i) => ({
   ownerId: i % 2 === 0 ? 'player-1' : 'player-2',
   hp: 10,
   maxHp: 10,
+  position: { x: i % 10, y: Math.floor(i / 10) },
+  spatialRef: { q: i % 10, r: Math.floor(i / 10) },
 }));
 
 const INITIAL_VIEW: ViewState = { zoom: 1, offsetX: 0, offsetY: 0 };
