@@ -17,6 +17,7 @@ export interface UnitState {
   readonly ownerId: TeamId;
   readonly hp: number;
   readonly maxHp: number;
+  readonly definitionId?: string;
   readonly position?: Position;
   readonly spatialRef?: Readonly<{ q: number; r: number }>;
   readonly actionPoints?: number;
@@ -282,6 +283,7 @@ export function toRuleEvaluationState(state: GameState, mapId: string): RuleEval
   const units: SimulationUnit[] = Object.values(state.units).map((unit) => ({
     id: unit.id,
     teamId: unit.ownerId,
+    definitionId: unit.definitionId,
     health: unit.hp,
     maxHealth: unit.maxHp,
     actionPoints: unit.actionPoints,
@@ -317,6 +319,7 @@ export function toSchedulerStateSnapshot(state: GameState): SchedulerStateSnapsh
     units: Object.values(state.units).map((unit) => ({
       id: unit.id,
       teamId: unit.ownerId,
+      definitionId: unit.definitionId,
       health: unit.hp,
       maxHealth: unit.maxHp,
       actionPoints: unit.actionPoints,

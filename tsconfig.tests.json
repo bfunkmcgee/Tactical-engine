@@ -15,13 +15,16 @@
     ],
     "jsx": "react-jsx",
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true
   },
   "include": [
     "packages/**/*.ts",
     "packages/**/*.d.ts",
     "apps/web-client/src/**/*.ts",
-    "apps/web-client/src/**/*.tsx"
+    "apps/web-client/src/**/*.tsx",
+    "games/**/*.ts",
+    "games/**/*.json"
   ],
   "exclude": [
     "node_modules/**",

@@ -2,29 +2,20 @@ import { useMemo, useState } from 'react';
 import {
   type GameEvent,
   type GameState,
-  type UnitState,
   type Action,
-  createInitialState,
   getActiveActorId,
 } from '../../../../../packages/engine-core/state/GameState';
-import { advancePhase, getLegalActions, step } from '../../../../../packages/engine-core/simulation/Engine';
+import { createExampleScenarioRuntime } from '../../../../../games/example-skirmish/scenario/runtime';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
 
 export type { EngineSnapshot, Entity, ViewState, EngineActionView } from './engineSnapshot';
 
-const INITIAL_UNITS: UnitState[] = Array.from({ length: 80 }, (_, i) => ({
-  id: `unit-${i + 1}`,
-  ownerId: i % 2 === 0 ? 'player-1' : 'player-2',
-  hp: 10,
-  maxHp: 10,
-  position: { x: i % 10, y: Math.floor(i / 10) },
-  spatialRef: { q: i % 10, r: Math.floor(i / 10) },
-}));
-
+const scenarioRuntime = createExampleScenarioRuntime();
+const engine = scenarioRuntime.engine;
 const INITIAL_VIEW: ViewState = { zoom: 1, offsetX: 0, offsetY: 0 };
 
 function createInitialEngineState(): GameState {
-  return advancePhase(createInitialState(['player-1', 'player-2'], INITIAL_UNITS));
+  return engine.advancePhase(scenarioRuntime.createInitialState());
 }
 
 type StoreState = {
@@ -42,7 +33,7 @@ function toSnapshot(store: StoreState): EngineSnapshot {
     selection: store.selection,
     tick: store.tick,
     view: store.view,
-    getLegalActions,
+    getLegalActions: engine.getLegalActions.bind(engine),
   });
 }
 
@@ -103,7 +94,7 @@ export function usePresentationStore() {
       triggerAction: (action: Action) => {
         setStore((prev) => {
           const activeActorId = getActiveActorId(prev.state);
-          const legalActions = getLegalActions(prev.state, activeActorId);
+          const legalActions = engine.getLegalActions(prev.state, activeActorId);
           const requestedPayload = JSON.stringify(action.payload ?? null);
           const isLegal = legalActions.some(
             (candidate) =>
@@ -115,7 +106,7 @@ export function usePresentationStore() {
             return prev;
           }
 
-          const result = step(prev.state, action);
+          const result = engine.step(prev.state, action);
           return {
             ...prev,
             tick: prev.tick + 1,

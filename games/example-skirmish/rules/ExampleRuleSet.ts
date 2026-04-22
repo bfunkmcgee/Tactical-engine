@@ -172,24 +172,41 @@ export class ExampleRuleSet implements RuleSet {
         }, {});
 
         let healthDelta = 0;
-        const nextStatuses = (unit.statusEffectIds ?? []).flatMap((status) => {
-          const dot = /^dot:(\d+):(\d+)$/u.exec(status);
+        const nextEffects = (unit.activeEffects ?? []).flatMap((effect) => {
+          const dot = /^dot:(\d+)$/u.exec(effect.effectId);
           if (dot) {
-            const amount = Number(dot[1]);
-            const turns = Number(dot[2]);
-            healthDelta -= amount;
-            return turns > 1 ? [`dot:${amount}:${turns - 1}`] : [];
+            healthDelta -= Number(dot[1]);
+            return effect.duration > 1
+              ? [
+                  {
+                    ...effect,
+                    duration: effect.duration - 1,
+                  },
+                ]
+              : [];
           }
 
-          const regen = /^regen:(\d+):(\d+)$/u.exec(status);
+          const regen = /^regen:(\d+)$/u.exec(effect.effectId);
           if (regen) {
-            const amount = Number(regen[1]);
-            const turns = Number(regen[2]);
-            healthDelta += amount;
-            return turns > 1 ? [`regen:${amount}:${turns - 1}`] : [];
+            healthDelta += Number(regen[1]);
+            return effect.duration > 1
+              ? [
+                  {
+                    ...effect,
+                    duration: effect.duration - 1,
+                  },
+                ]
+              : [];
           }
 
-          return status === 'expired' ? [] : [status];
+          return effect.duration > 1
+            ? [
+                {
+                  ...effect,
+                  duration: effect.duration - 1,
+                },
+              ]
+            : [];
         });
 
         const maxHealth = unit.maxHealth ?? unit.health;
@@ -199,7 +216,7 @@ export class ExampleRuleSet implements RuleSet {
           ...unit,
           health: nextHealth,
           cooldowns: Object.keys(nextCooldowns).length > 0 ? nextCooldowns : undefined,
-          statusEffectIds: nextStatuses,
+          activeEffects: nextEffects.length > 0 ? nextEffects : undefined,
         };
       }),
     };
