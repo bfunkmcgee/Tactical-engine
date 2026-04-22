@@ -133,13 +133,31 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
         return state;
       }
 
+      const statusEffectsById = (target.statusEffectIds ?? []).reduce<Map<string, string>>((acc, entry) => {
+        const separatorIndex = entry.indexOf(':');
+        if (separatorIndex === -1) {
+          acc.set(entry, entry);
+          return acc;
+        }
+
+        const statusId = entry.slice(0, separatorIndex);
+        const duration = entry.slice(separatorIndex + 1);
+        acc.set(statusId, duration);
+        return acc;
+      }, new Map());
+
+      statusEffectsById.set(event.statusId, String(event.duration));
+      const statusEffectIds = Array.from(statusEffectsById.entries())
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([statusId, duration]) => `${statusId}:${duration}`);
+
       return {
         ...state,
         units: {
           ...state.units,
           [target.id]: {
             ...target,
-            statusEffectIds: [...(target.statusEffectIds ?? []), `${event.statusId}:${event.duration}`],
+            statusEffectIds,
           },
         },
       };
