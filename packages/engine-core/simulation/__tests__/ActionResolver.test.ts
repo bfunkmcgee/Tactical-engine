@@ -5,8 +5,8 @@ import { createInitialState, type Action, type GameState, type UnitState } from 
 
 function createState(partial?: Partial<GameState>): GameState {
   const units: UnitState[] = [
-    { id: 'u-a', ownerId: 'A', hp: 8, maxHp: 8 },
-    { id: 'u-b', ownerId: 'B', hp: 8, maxHp: 8 },
+    { id: 'u-a', ownerId: 'A', hp: 8, maxHp: 8, position: { x: 1, y: 1 } },
+    { id: 'u-b', ownerId: 'B', hp: 8, maxHp: 8, position: { x: 3, y: 1 } },
   ];
 
   return {
@@ -80,4 +80,40 @@ test('ActionResolver emits canonical action event for valid actions', () => {
   assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED']);
   assert.equal(result.state.units['u-b']?.hp, 8);
   assert.equal(result.state.pendingActions.length, 1);
+});
+
+test('ActionResolver generates legal MOVE actions and emits UNIT_MOVED', () => {
+  const state = createState();
+  const moveAction = resolver.getLegalActions(state, 'A').find((action) => action.type === 'MOVE');
+  assert.ok(moveAction);
+
+  const result = resolver.applyAction(state, moveAction);
+  assert.deepEqual(
+    result.events.map((event) => event.kind),
+    ['ACTION_APPLIED', 'UNIT_MOVED'],
+  );
+});
+
+test('ActionResolver generates legal USE_ABILITY actions and emits ABILITY_USED', () => {
+  const state = createState();
+  const useAbilityAction = resolver.getLegalActions(state, 'A').find((action) => action.type === 'USE_ABILITY');
+  assert.ok(useAbilityAction);
+
+  const result = resolver.applyAction(state, useAbilityAction);
+  assert.deepEqual(
+    result.events.map((event) => event.kind),
+    ['ACTION_APPLIED', 'ABILITY_USED'],
+  );
+});
+
+test('ActionResolver generates legal USE_ITEM actions and emits ITEM_USED', () => {
+  const state = createState();
+  const useItemAction = resolver.getLegalActions(state, 'A').find((action) => action.type === 'USE_ITEM');
+  assert.ok(useItemAction);
+
+  const result = resolver.applyAction(state, useItemAction);
+  assert.deepEqual(
+    result.events.map((event) => event.kind),
+    ['ACTION_APPLIED', 'ITEM_USED'],
+  );
 });

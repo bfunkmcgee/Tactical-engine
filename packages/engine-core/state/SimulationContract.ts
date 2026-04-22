@@ -38,6 +38,18 @@ export interface MoveActionPayload {
   readonly actionPointCost?: number;
 }
 
+export interface UseAbilityActionPayload {
+  readonly unitId: UnitId;
+  readonly abilityId: string;
+  readonly targetId?: UnitId;
+}
+
+export interface UseItemActionPayload {
+  readonly unitId: UnitId;
+  readonly itemId: string;
+  readonly targetId?: UnitId;
+}
+
 export interface ApplyStatusActionPayload {
   readonly sourceUnitId?: UnitId;
   readonly targetId: UnitId;
@@ -49,12 +61,14 @@ export interface PassActionPayload {
   readonly phase?: Phase;
 }
 
-export type ActionType = 'END_COMMAND' | 'ATTACK' | 'MOVE' | 'APPLY_STATUS' | 'PASS';
+export type ActionType = 'END_COMMAND' | 'ATTACK' | 'MOVE' | 'USE_ABILITY' | 'USE_ITEM' | 'APPLY_STATUS' | 'PASS';
 
 export type ActionPayload =
   | EndCommandActionPayload
   | AttackActionPayload
   | MoveActionPayload
+  | UseAbilityActionPayload
+  | UseItemActionPayload
   | ApplyStatusActionPayload
   | PassActionPayload
   | undefined;
@@ -101,6 +115,22 @@ export type SimulationEvent =
       readonly targetId: UnitId;
       readonly amount: number;
       readonly abilityId?: string;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
+      readonly kind: 'ABILITY_USED';
+      readonly unitId: UnitId;
+      readonly abilityId: string;
+      readonly targetId?: UnitId;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
+      readonly kind: 'ITEM_USED';
+      readonly unitId: UnitId;
+      readonly itemId: string;
+      readonly targetId?: UnitId;
       readonly turn: number;
       readonly round: number;
     }

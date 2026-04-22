@@ -49,6 +49,18 @@ function toActionLabel(action: Action): string {
     }
     case 'END_COMMAND':
       return 'End Command';
+    case 'MOVE': {
+      const unitId = action.payload && 'unitId' in action.payload ? action.payload.unitId : 'unit';
+      return `Move ${unitId}`;
+    }
+    case 'USE_ABILITY': {
+      const abilityId = action.payload && 'abilityId' in action.payload ? action.payload.abilityId : 'ability';
+      return `Use Ability ${abilityId}`;
+    }
+    case 'USE_ITEM': {
+      const itemId = action.payload && 'itemId' in action.payload ? action.payload.itemId : 'item';
+      return `Use Item ${itemId}`;
+    }
     case 'PASS':
       return 'Pass';
     default:

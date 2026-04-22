@@ -72,7 +72,13 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
     }
 
     case 'ACTION_APPLIED': {
-      if (event.action.type === 'ATTACK' || event.action.type === 'PASS' || event.action.type === 'MOVE') {
+      if (
+        event.action.type === 'ATTACK' ||
+        event.action.type === 'PASS' ||
+        event.action.type === 'MOVE' ||
+        event.action.type === 'USE_ABILITY' ||
+        event.action.type === 'USE_ITEM'
+      ) {
         return {
           ...state,
           pendingActions: [...state.pendingActions, event.action],

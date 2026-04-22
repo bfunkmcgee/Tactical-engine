@@ -27,9 +27,29 @@ interface PassCandidatePayload {
   readonly phase: GameState['phase'];
 }
 
+interface MoveCandidatePayload {
+  readonly unitId: string;
+  readonly to: { x: number; y: number };
+}
+
+interface UseAbilityCandidatePayload {
+  readonly unitId: string;
+  readonly abilityId: string;
+  readonly targetId?: string;
+}
+
+interface UseItemCandidatePayload {
+  readonly unitId: string;
+  readonly itemId: string;
+  readonly targetId?: string;
+}
+
 const ATTACK_PAYLOAD_KEYS: readonly string[] = ['amount', 'targetId'];
 const END_COMMAND_PAYLOAD_KEYS: readonly string[] = ['reason'];
 const PASS_PAYLOAD_KEYS: readonly string[] = ['phase'];
+const MOVE_PAYLOAD_KEYS: readonly string[] = ['unitId', 'to'];
+const USE_ABILITY_PAYLOAD_KEYS: readonly string[] = ['unitId', 'abilityId', 'targetId'];
+const USE_ITEM_PAYLOAD_KEYS: readonly string[] = ['unitId', 'itemId', 'targetId'];
 
 export class ActionResolver {
   public applyAction(state: GameState, action: Action): StateTransitionResult {
@@ -65,6 +85,12 @@ export class ActionResolver {
         return this.validateAttackAction(state, action, legalActions.filter((candidate) => candidate.type === 'ATTACK'));
       case 'END_COMMAND':
         return this.validateEndCommandAction(action, legalActions.filter((candidate) => candidate.type === 'END_COMMAND'));
+      case 'MOVE':
+        return this.validateMoveAction(action, legalActions.filter((candidate) => candidate.type === 'MOVE'));
+      case 'USE_ABILITY':
+        return this.validateUseAbilityAction(action, legalActions.filter((candidate) => candidate.type === 'USE_ABILITY'));
+      case 'USE_ITEM':
+        return this.validateUseItemAction(action, legalActions.filter((candidate) => candidate.type === 'USE_ITEM'));
       case 'PASS':
         return this.validatePassAction(action, legalActions.filter((candidate) => candidate.type === 'PASS'));
       default:
@@ -89,7 +115,50 @@ export class ActionResolver {
         round: state.round,
       },
     ];
+    if (action.type === 'MOVE') {
+      const payload = this.toMoveCandidatePayload(action.payload);
+      if (payload) {
+        const movingUnit = state.units[payload.unitId];
+        if (movingUnit?.position) {
+          events.push({
+            kind: 'UNIT_MOVED',
+            unitId: payload.unitId,
+            from: movingUnit.position,
+            to: payload.to,
+            turn: state.turn,
+            round: state.round,
+          });
+        }
+      }
+    }
 
+    if (action.type === 'USE_ABILITY') {
+      const payload = this.toUseAbilityCandidatePayload(action.payload);
+      if (payload) {
+        events.push({
+          kind: 'ABILITY_USED',
+          unitId: payload.unitId,
+          abilityId: payload.abilityId,
+          targetId: payload.targetId,
+          turn: state.turn,
+          round: state.round,
+        });
+      }
+    }
+
+    if (action.type === 'USE_ITEM') {
+      const payload = this.toUseItemCandidatePayload(action.payload);
+      if (payload) {
+        events.push({
+          kind: 'ITEM_USED',
+          unitId: payload.unitId,
+          itemId: payload.itemId,
+          targetId: payload.targetId,
+          turn: state.turn,
+          round: state.round,
+        });
+      }
+    }
 
     return events;
   }
@@ -101,6 +170,7 @@ export class ActionResolver {
 
     switch (state.phase) {
       case 'COMMAND': {
+        const actorUnit = this.findActorUnit(state, actorId);
         const attackActions: Action[] = Object.values(state.units)
           .filter((unit) => unit.ownerId !== actorId && unit.hp > 0)
           .sort((left, right) => left.id.localeCompare(right.id))
@@ -111,8 +181,56 @@ export class ActionResolver {
             payload: { targetId: target.id, amount: 1 },
           }));
 
+        const moveActions: Action[] =
+          actorUnit?.position === undefined
+            ? []
+            : [
+                {
+                  id: `move:${actorId}:${actorUnit.id}:${actorUnit.position.x + 1}:${actorUnit.position.y}`,
+                  actorId,
+                  type: 'MOVE',
+                  payload: {
+                    unitId: actorUnit.id,
+                    to: { x: actorUnit.position.x + 1, y: actorUnit.position.y },
+                  },
+                },
+              ];
+
+        const useAbilityActions: Action[] = actorUnit
+          ? [
+              {
+                id: `use-ability:${actorId}:${actorUnit.id}:basic-strike`,
+                actorId,
+                type: 'USE_ABILITY',
+                payload: {
+                  unitId: actorUnit.id,
+                  abilityId: 'basic-strike',
+                  targetId: attackActions.length > 0 ? (attackActions[0]?.payload as { targetId?: string })?.targetId : undefined,
+                },
+              },
+            ]
+          : [];
+
+        const useItemActions: Action[] = actorUnit
+          ? [
+              {
+                id: `use-item:${actorId}:${actorUnit.id}:basic-potion`,
+                actorId,
+                type: 'USE_ITEM',
+                payload: {
+                  unitId: actorUnit.id,
+                  itemId: 'basic-potion',
+                  targetId: actorUnit.id,
+                },
+              },
+            ]
+          : [];
+
         return [
           ...attackActions,
+          ...moveActions,
+          ...useAbilityActions,
+          ...useItemActions,
           {
             id: `end-command:${actorId}`,
             actorId,
@@ -316,6 +434,99 @@ export class ActionResolver {
         };
   }
 
+  private validateMoveAction(action: Action, legalActions: Action[]): ActionValidationResult {
+    if (legalActions.length === 0) {
+      return { isValid: false, reason: 'MOVE_NOT_LEGAL_IN_PHASE' };
+    }
+
+    const payload = this.toRecord(action.payload);
+    if (!payload) {
+      return { isValid: false, reason: 'INVALID_MOVE_PAYLOAD_TYPE' };
+    }
+
+    const keyValidation = this.validateAllowedKeys(payload, MOVE_PAYLOAD_KEYS);
+    if (!keyValidation.isValid) {
+      return keyValidation;
+    }
+
+    const normalized = this.toMoveCandidatePayload(action.payload);
+    if (!normalized) {
+      return { isValid: false, reason: 'MOVE_PAYLOAD_INVALID' };
+    }
+
+    const hasMatch = legalActions.some(
+      (candidate) =>
+        candidate.id === action.id &&
+        candidate.actorId === action.actorId &&
+        candidate.type === 'MOVE' &&
+        this.movePayloadEquals(candidate.payload, normalized),
+    );
+
+    return hasMatch ? { isValid: true } : { isValid: false, reason: 'MOVE_NOT_FOUND_IN_LEGAL_ACTIONS' };
+  }
+
+  private validateUseAbilityAction(action: Action, legalActions: Action[]): ActionValidationResult {
+    if (legalActions.length === 0) {
+      return { isValid: false, reason: 'USE_ABILITY_NOT_LEGAL_IN_PHASE' };
+    }
+
+    const payload = this.toRecord(action.payload);
+    if (!payload) {
+      return { isValid: false, reason: 'INVALID_USE_ABILITY_PAYLOAD_TYPE' };
+    }
+
+    const keyValidation = this.validateAllowedKeys(payload, USE_ABILITY_PAYLOAD_KEYS);
+    if (!keyValidation.isValid) {
+      return keyValidation;
+    }
+
+    const normalized = this.toUseAbilityCandidatePayload(action.payload);
+    if (!normalized) {
+      return { isValid: false, reason: 'USE_ABILITY_PAYLOAD_INVALID' };
+    }
+
+    const hasMatch = legalActions.some(
+      (candidate) =>
+        candidate.id === action.id &&
+        candidate.actorId === action.actorId &&
+        candidate.type === 'USE_ABILITY' &&
+        this.useAbilityPayloadEquals(candidate.payload, normalized),
+    );
+
+    return hasMatch ? { isValid: true } : { isValid: false, reason: 'USE_ABILITY_NOT_FOUND_IN_LEGAL_ACTIONS' };
+  }
+
+  private validateUseItemAction(action: Action, legalActions: Action[]): ActionValidationResult {
+    if (legalActions.length === 0) {
+      return { isValid: false, reason: 'USE_ITEM_NOT_LEGAL_IN_PHASE' };
+    }
+
+    const payload = this.toRecord(action.payload);
+    if (!payload) {
+      return { isValid: false, reason: 'INVALID_USE_ITEM_PAYLOAD_TYPE' };
+    }
+
+    const keyValidation = this.validateAllowedKeys(payload, USE_ITEM_PAYLOAD_KEYS);
+    if (!keyValidation.isValid) {
+      return keyValidation;
+    }
+
+    const normalized = this.toUseItemCandidatePayload(action.payload);
+    if (!normalized) {
+      return { isValid: false, reason: 'USE_ITEM_PAYLOAD_INVALID' };
+    }
+
+    const hasMatch = legalActions.some(
+      (candidate) =>
+        candidate.id === action.id &&
+        candidate.actorId === action.actorId &&
+        candidate.type === 'USE_ITEM' &&
+        this.useItemPayloadEquals(candidate.payload, normalized),
+    );
+
+    return hasMatch ? { isValid: true } : { isValid: false, reason: 'USE_ITEM_NOT_FOUND_IN_LEGAL_ACTIONS' };
+  }
+
   private validateAllowedKeys(
     payload: Record<string, unknown>,
     allowedKeys: readonly string[],
@@ -344,6 +555,36 @@ export class ActionResolver {
   private passPayloadEquals(payload: Action['payload'], candidate: PassCandidatePayload): boolean {
     const normalized = this.toPassCandidatePayload(payload);
     return Boolean(normalized && normalized.phase === candidate.phase);
+  }
+
+  private movePayloadEquals(payload: Action['payload'], candidate: MoveCandidatePayload): boolean {
+    const normalized = this.toMoveCandidatePayload(payload);
+    return Boolean(
+      normalized &&
+        normalized.unitId === candidate.unitId &&
+        normalized.to.x === candidate.to.x &&
+        normalized.to.y === candidate.to.y,
+    );
+  }
+
+  private useAbilityPayloadEquals(payload: Action['payload'], candidate: UseAbilityCandidatePayload): boolean {
+    const normalized = this.toUseAbilityCandidatePayload(payload);
+    return Boolean(
+      normalized &&
+        normalized.unitId === candidate.unitId &&
+        normalized.abilityId === candidate.abilityId &&
+        normalized.targetId === candidate.targetId,
+    );
+  }
+
+  private useItemPayloadEquals(payload: Action['payload'], candidate: UseItemCandidatePayload): boolean {
+    const normalized = this.toUseItemCandidatePayload(payload);
+    return Boolean(
+      normalized &&
+        normalized.unitId === candidate.unitId &&
+        normalized.itemId === candidate.itemId &&
+        normalized.targetId === candidate.targetId,
+    );
   }
 
   private toAttackCandidatePayload(payload: Action['payload']): AttackCandidatePayload | undefined {
@@ -387,6 +628,52 @@ export class ActionResolver {
     }
 
     return { phase: record.phase as GameState['phase'] };
+  }
+
+  private toMoveCandidatePayload(payload: Action['payload']): MoveCandidatePayload | undefined {
+    const record = this.toRecord(payload);
+    if (!record || typeof record.unitId !== 'string') {
+      return undefined;
+    }
+
+    const to = this.toRecord(record.to as Action['payload']);
+    if (
+      !to ||
+      typeof to.x !== 'number' ||
+      !Number.isInteger(to.x) ||
+      typeof to.y !== 'number' ||
+      !Number.isInteger(to.y)
+    ) {
+      return undefined;
+    }
+
+    return { unitId: record.unitId, to: { x: to.x, y: to.y } };
+  }
+
+  private toUseAbilityCandidatePayload(payload: Action['payload']): UseAbilityCandidatePayload | undefined {
+    const record = this.toRecord(payload);
+    if (!record || typeof record.unitId !== 'string' || typeof record.abilityId !== 'string') {
+      return undefined;
+    }
+
+    if (record.targetId !== undefined && typeof record.targetId !== 'string') {
+      return undefined;
+    }
+
+    return { unitId: record.unitId, abilityId: record.abilityId, targetId: record.targetId as string | undefined };
+  }
+
+  private toUseItemCandidatePayload(payload: Action['payload']): UseItemCandidatePayload | undefined {
+    const record = this.toRecord(payload);
+    if (!record || typeof record.unitId !== 'string' || typeof record.itemId !== 'string') {
+      return undefined;
+    }
+
+    if (record.targetId !== undefined && typeof record.targetId !== 'string') {
+      return undefined;
+    }
+
+    return { unitId: record.unitId, itemId: record.itemId, targetId: record.targetId as string | undefined };
   }
 
   private toRecord(payload: Action['payload']): Record<string, unknown> | undefined {
