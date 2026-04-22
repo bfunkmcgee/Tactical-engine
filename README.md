@@ -74,3 +74,19 @@ npm run preview --prefix apps/web-client
 ## Current maturity expectations
 
 This repo demonstrates a working vertical slice and architecture direction. Several modules are intentionally marked experimental, and some capabilities are validated primarily through the demo path and integration tests rather than production-ready runtime guarantees.
+
+## Example runtime integration status
+
+The web demo now boots from a single scenario runtime source (`games/example-skirmish/scenario/runtime.ts`) that binds:
+
+- `engine-core` state/action pipeline
+- `rules-sdk` legal targeting + damage resolution hooks via adapter
+- `games/example-skirmish` content + `ExampleRuleSet`
+- `apps/web-client` presentation store initialization
+
+### Still demo-only after this integration
+
+- Turn economy is still simplified and does not yet run full `RuleSet` turn lifecycle hooks for every phase transition.
+- `USE_ABILITY` and `USE_ITEM` outcomes still use engine-core demo event behavior unless explicitly represented as attacks.
+- Victory checks from `RuleSet.checkVictory` are not yet connected to a match-end state in `engine-core` or the web UI.
+- Scenario selection/loading is still hard-wired to the example skirmish runtime (no content browser or save/load flow yet).

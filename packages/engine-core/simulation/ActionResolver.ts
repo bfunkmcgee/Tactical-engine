@@ -12,6 +12,7 @@ import { SquareGridAdapter } from '../../engine-spatial/grid/GridAdapter';
 import { LineOfSight } from '../../engine-spatial/los/LineOfSight';
 import { Targeting } from '../../engine-spatial/range/Targeting';
 import { DemoLegalActionGenerator, type LegalActionGenerator } from './LegalActionGenerator';
+import type { RuleActionAdapter } from './RuleAdapter';
 
 interface ActionValidationResult {
   readonly isValid: boolean;
@@ -20,8 +21,10 @@ interface ActionValidationResult {
 }
 
 interface AttackCandidatePayload {
+  readonly sourceUnitId?: string;
   readonly targetId: string;
   readonly amount: number;
+  readonly abilityId?: string;
   readonly actionPointCost?: number;
 }
 
@@ -68,7 +71,7 @@ interface GridTargetPayload {
   readonly y: number;
 }
 
-const ATTACK_PAYLOAD_KEYS: readonly string[] = ['amount', 'targetId', 'actionPointCost'];
+const ATTACK_PAYLOAD_KEYS: readonly string[] = ['sourceUnitId', 'amount', 'targetId', 'abilityId', 'actionPointCost'];
 const END_COMMAND_PAYLOAD_KEYS: readonly string[] = ['reason'];
 const PASS_PAYLOAD_KEYS: readonly string[] = ['phase'];
 const MOVE_PAYLOAD_KEYS: readonly string[] = ['unitId', 'to', 'actionPointCost'];
@@ -80,9 +83,11 @@ export class ActionResolver {
   private readonly grid = new SquareGridAdapter();
   private readonly targeting = new Targeting(this.grid);
   private readonly legalActionGenerator: LegalActionGenerator;
+  private readonly ruleAdapter?: RuleActionAdapter;
 
-  constructor(legalActionGenerator: LegalActionGenerator = new DemoLegalActionGenerator()) {
+  constructor(legalActionGenerator: LegalActionGenerator = new DemoLegalActionGenerator(), ruleAdapter?: RuleActionAdapter) {
     this.legalActionGenerator = legalActionGenerator;
+    this.ruleAdapter = ruleAdapter;
   }
 
   public applyAction(state: GameState, action: Action): StateTransitionResult {
@@ -196,8 +201,10 @@ export class ActionResolver {
 
     const normalizedAmount = amountValue === undefined ? 1 : (amountValue as number);
     const canonicalPayload: AttackCandidatePayload = {
+      sourceUnitId: typeof payload.sourceUnitId === 'string' ? payload.sourceUnitId : undefined,
       targetId,
       amount: normalizedAmount,
+      abilityId: typeof payload.abilityId === 'string' ? payload.abilityId : undefined,
       actionPointCost:
         typeof payload.actionPointCost === 'number' && Number.isInteger(payload.actionPointCost) && payload.actionPointCost >= 0
           ? payload.actionPointCost
@@ -508,7 +515,7 @@ export class ActionResolver {
   }
 
   private attackPayloadEquals(left: AttackCandidatePayload, right: AttackCandidatePayload): boolean {
-    return left.targetId === right.targetId && left.amount === right.amount && left.actionPointCost === right.actionPointCost;
+    return left.sourceUnitId === right.sourceUnitId && left.targetId === right.targetId && left.amount === right.amount && left.abilityId === right.abilityId && left.actionPointCost === right.actionPointCost;
   }
 
   private endCommandPayloadEquals(payload: Action['payload'], candidate: EndCommandCandidatePayload): boolean {
@@ -581,8 +588,10 @@ export class ActionResolver {
     }
 
     return {
+      sourceUnitId: typeof record.sourceUnitId === 'string' ? record.sourceUnitId : undefined,
       targetId: record.targetId,
       amount: normalizedAmount,
+      abilityId: typeof record.abilityId === 'string' ? record.abilityId : undefined,
       actionPointCost,
     };
   }
@@ -758,17 +767,46 @@ export class ActionResolver {
       return;
     }
 
+    const ruleResolution = this.ruleAdapter?.resolveAttack(context.state, context.action, actorUnit, targetUnit);
+    const damageAmount = ruleResolution?.amount ?? payload.amount;
+
     context.events.push({
       kind: 'UNIT_DAMAGED',
       sourceId: actorUnit.ownerId,
       sourceUnitId: actorUnit.id,
       targetId: targetUnit.id,
-      amount: payload.amount,
+      amount: damageAmount,
+      abilityId: ruleResolution?.abilityId,
       turn: context.state.turn,
       round: context.state.round,
     });
 
-    if (targetUnit.hp - payload.amount <= 0) {
+    for (const statusId of ruleResolution?.appliedStatusEffectIds ?? []) {
+      context.events.push({
+        kind: 'STATUS_APPLIED',
+        sourceUnitId: actorUnit.id,
+        targetId: targetUnit.id,
+        statusId,
+        duration: 1,
+        turn: context.state.turn,
+        round: context.state.round,
+      });
+    }
+
+    if ((ruleResolution?.appliedCooldownTurns ?? 0) > 0 && ruleResolution?.abilityId) {
+      const from = actorUnit.cooldowns?.[ruleResolution.abilityId] ?? 0;
+      context.events.push({
+        kind: 'COOLDOWN_TICKED',
+        unitId: actorUnit.id,
+        abilityId: ruleResolution.abilityId,
+        from,
+        to: ruleResolution.appliedCooldownTurns ?? 0,
+        turn: context.state.turn,
+        round: context.state.round,
+      });
+    }
+
+    if (ruleResolution?.defeated ?? targetUnit.hp - damageAmount <= 0) {
       context.events.push({
         kind: 'UNIT_DEFEATED',
         sourceId: actorUnit.ownerId,

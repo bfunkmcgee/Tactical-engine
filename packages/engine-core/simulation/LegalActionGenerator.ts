@@ -6,7 +6,7 @@ export interface LegalActionGenerator {
 }
 
 const DEMO_ATTACK_AMOUNT = 1;
-const DEMO_ATTACK_ABILITY_ID = 'basic-attack';
+const DEMO_ATTACK_ABILITY_ID = 'rifle_shot';
 const DEFAULT_MOVE_COST = 1;
 
 export class DemoLegalActionGenerator implements LegalActionGenerator {
@@ -223,7 +223,7 @@ export class RulesetLegalActionGenerator implements LegalActionGenerator {
         payload: {
           sourceUnitId: actorUnit.id,
           targetId: target.id,
-          amount: DEMO_ATTACK_AMOUNT,
+          amount: this.options.content.abilities[abilityId]?.damage ?? DEMO_ATTACK_AMOUNT,
           abilityId,
           actionPointCost: cost,
         },
@@ -236,7 +236,7 @@ export class RulesetLegalActionGenerator implements LegalActionGenerator {
     actorUnit: UnitState,
     battleState: ReturnType<typeof toRuleEvaluationState>,
   ): Action[] {
-    const definitionId = Object.prototype.hasOwnProperty.call(this.options.content.units, actorUnit.id) ? actorUnit.id : undefined;
+    const definitionId = actorUnit.definitionId;
     const abilityIds = definitionId ? this.options.content.units[definitionId]?.abilityIds ?? [] : [];
 
     return abilityIds.flatMap((abilityId) => {
