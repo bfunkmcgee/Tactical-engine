@@ -1,0 +1,29 @@
+.dev-inspector {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 360px;
+  max-height: 100vh;
+  overflow: auto;
+  color: #fff;
+  background: rgba(20, 20, 32, 0.94);
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  font-family: Inter, system-ui, sans-serif;
+  z-index: 9999;
+}
+
+.dev-inspector__panel {
+  padding: 12px;
+}
+
+.dev-inspector h2,
+.dev-inspector h3 {
+  margin: 10px 0 6px;
+}
+
+.dev-inspector pre {
+  padding: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  white-space: pre-wrap;
+}
