@@ -22,6 +22,9 @@ test('AStar finds deterministic path and serves cached repeats', () => {
   const second = astar.findPath(query);
 
   assert.ok(first);
+  if (!first) {
+    return;
+  }
   assert.equal(first.fromCache, false);
   assert.equal(second?.fromCache, true);
   assert.equal(first.totalCost, 4);

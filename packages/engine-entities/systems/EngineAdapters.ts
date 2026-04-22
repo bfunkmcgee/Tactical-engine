@@ -6,15 +6,46 @@ import { CombatSystem } from './CombatSystem';
 import { MovementSystem } from './MovementSystem';
 import { TurnEconomySystem } from './TurnEconomySystem';
 
+interface MovePayload {
+  readonly unitId: string;
+  readonly to: { readonly x: number; readonly y: number };
+  readonly actionPointCost?: number;
+}
+
+interface AttackPayload {
+  readonly targetId: string;
+  readonly abilityId?: string;
+}
+
 function getActorUnitId(state: GameState, action: Action): string | undefined {
   return Object.values(state.units).find((unit) => unit.ownerId === action.actorId && unit.hp > 0)?.id;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function isMovePayload(payload: Action['payload']): payload is MovePayload {
+  if (!isRecord(payload) || typeof payload.unitId !== 'string' || !isRecord(payload.to)) {
+    return false;
+  }
+
+  return typeof payload.to.x === 'number' && typeof payload.to.y === 'number';
+}
+
+function isAttackPayload(payload: Action['payload']): payload is AttackPayload {
+  if (!isRecord(payload) || typeof payload.targetId !== 'string') {
+    return false;
+  }
+
+  return payload.abilityId === undefined || typeof payload.abilityId === 'string';
 }
 
 export class EntityMovementStrategyAdapter implements SimulationStrategy {
   constructor(private readonly store: EntityStore, private readonly movementSystem: MovementSystem) {}
 
   collectEvents(context: StrategyContext): readonly GameEvent[] {
-    if (context.action.type !== 'MOVE' || !context.action.payload || !('to' in context.action.payload)) {
+    if (context.action.type !== 'MOVE' || !isMovePayload(context.action.payload)) {
       return [];
     }
 
@@ -49,7 +80,7 @@ export class EntityCombatStrategyAdapter implements SimulationStrategy {
 
     const actorUnitId = getActorUnitId(context.state, context.action);
     const payload = context.action.payload;
-    if (!actorUnitId || !payload || !('targetId' in payload)) {
+    if (!actorUnitId || !isAttackPayload(payload)) {
       return [];
     }
 
@@ -58,7 +89,7 @@ export class EntityCombatStrategyAdapter implements SimulationStrategy {
       {
         attackerId: actorUnitId,
         defenderId: payload.targetId,
-        abilityId: 'abilityId' in payload ? payload.abilityId : undefined,
+        abilityId: payload.abilityId,
       },
       context.state.turn,
       context.state.round,
