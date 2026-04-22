@@ -30,8 +30,13 @@ export function App() {
       </main>
       <HUDPanel
         selected={snapshot.selection}
+        phase={snapshot.phase}
+        turn={snapshot.turn}
+        round={snapshot.round}
+        activeActorId={snapshot.activeActorId}
+        legalActions={snapshot.selectedLegalActions}
+        feedback={snapshot.feedback}
         onAction={actions.triggerAction}
-        lastInspection={snapshot.lastInspection}
       />
     </div>
   );
