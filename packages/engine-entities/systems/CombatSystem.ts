@@ -2,6 +2,7 @@ import { EntityStore, EntityId } from '../EntityStore';
 import { ACTION_POINTS_COMPONENT, ActionPoints } from '../components/ActionPoints';
 import { STATS_COMPONENT, Stats } from '../components/Stats';
 import { TEAM_COMPONENT, Team } from '../components/Team';
+import { computeEffectiveStats } from './StatusSystem';
 
 export interface AttackRequest {
   attackerId: EntityId;
@@ -20,11 +21,11 @@ export class CombatSystem {
     const cost = request.actionPointCost ?? 1;
     const attackerTeam = store.getComponent<Team>(TEAM_COMPONENT, request.attackerId);
     const defenderTeam = store.getComponent<Team>(TEAM_COMPONENT, request.defenderId);
-    const attackerStats = store.getComponent<Stats>(STATS_COMPONENT, request.attackerId);
-    const defenderStats = store.getComponent<Stats>(STATS_COMPONENT, request.defenderId);
+    const attackerBaseStats = store.getComponent<Stats>(STATS_COMPONENT, request.attackerId);
+    const defenderBaseStats = store.getComponent<Stats>(STATS_COMPONENT, request.defenderId);
     const attackerAp = store.getComponent<ActionPoints>(ACTION_POINTS_COMPONENT, request.attackerId);
 
-    if (!attackerTeam || !defenderTeam || !attackerStats || !defenderStats || !attackerAp) {
+    if (!attackerTeam || !defenderTeam || !attackerBaseStats || !defenderBaseStats || !attackerAp) {
       return { success: false, damage: 0 };
     }
 
@@ -32,11 +33,13 @@ export class CombatSystem {
       return { success: false, damage: 0 };
     }
 
+    const attackerStats = computeEffectiveStats(store, request.attackerId) ?? attackerBaseStats;
+    const defenderStats = computeEffectiveStats(store, request.defenderId) ?? defenderBaseStats;
     const damage = Math.max(1, attackerStats.attack - defenderStats.defense);
-    const nextHp = Math.max(0, defenderStats.hp - damage);
+    const nextHp = Math.max(0, defenderBaseStats.hp - damage);
 
     store.upsertComponent<Stats>(STATS_COMPONENT, request.defenderId, {
-      ...defenderStats,
+      ...defenderBaseStats,
       hp: nextHp,
     });
 

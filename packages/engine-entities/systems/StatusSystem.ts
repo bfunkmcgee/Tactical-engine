@@ -6,6 +6,55 @@ import {
   TimedEffect,
 } from '../components/StatusEffects';
 
+const MIN_EFFECTIVE_STATS: Pick<Stats, 'attack' | 'defense' | 'speed'> = {
+  attack: 0,
+  defense: 0,
+  speed: 0,
+};
+
+export function computeEffectiveStats(store: EntityStore, entityId: EntityId): Stats | null {
+  const baseStats = store.getComponent<Stats>(STATS_COMPONENT, entityId);
+  const statusEffects = store.getComponent<StatusEffects>(STATUS_EFFECTS_COMPONENT, entityId);
+
+  return computeEffectiveStatsFromComponents(baseStats, statusEffects);
+}
+
+export function computeEffectiveStatsFromComponents(
+  baseStats: Stats | null | undefined,
+  statusEffects: StatusEffects | null | undefined,
+): Stats | null {
+  if (!baseStats) {
+    return null;
+  }
+
+  const effectiveStats: Stats = { ...baseStats };
+
+  if (!statusEffects) {
+    return enforceEffectiveStatBounds(effectiveStats);
+  }
+
+  for (const effect of statusEffects.effects) {
+    for (const modifier of effect.modifiers) {
+      if (modifier.type !== 'statDelta') {
+        continue;
+      }
+
+      effectiveStats[modifier.stat] += modifier.amount * effect.stacks;
+    }
+  }
+
+  return enforceEffectiveStatBounds(effectiveStats);
+}
+
+function enforceEffectiveStatBounds(stats: Stats): Stats {
+  return {
+    ...stats,
+    attack: Math.max(MIN_EFFECTIVE_STATS.attack, stats.attack),
+    defense: Math.max(MIN_EFFECTIVE_STATS.defense, stats.defense),
+    speed: Math.max(MIN_EFFECTIVE_STATS.speed, stats.speed),
+  };
+}
+
 export class StatusSystem {
   applyEffect(store: EntityStore, entityId: EntityId, effect: TimedEffect): void {
     const current =

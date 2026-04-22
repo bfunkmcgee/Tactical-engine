@@ -1,6 +1,7 @@
 import { EntityStore, EntityId } from '../EntityStore';
 import { ACTION_POINTS_COMPONENT, ActionPoints } from '../components/ActionPoints';
 import { POSITION_COMPONENT, Position } from '../components/Position';
+import { computeEffectiveStats } from './StatusSystem';
 
 export interface MovementRequest {
   entityId: EntityId;
@@ -13,12 +14,18 @@ export class MovementSystem {
   move(store: EntityStore, request: MovementRequest): boolean {
     const position = store.getComponent<Position>(POSITION_COMPONENT, request.entityId);
     const actionPoints = store.getComponent<ActionPoints>(ACTION_POINTS_COMPONENT, request.entityId);
+    const effectiveStats = computeEffectiveStats(store, request.entityId);
 
-    if (!position || !actionPoints) {
+    if (!position || !actionPoints || !effectiveStats) {
       return false;
     }
 
-    const cost = request.actionPointCost ?? Math.abs(request.dx) + Math.abs(request.dy);
+    const distance = Math.abs(request.dx) + Math.abs(request.dy);
+    if (distance > effectiveStats.speed) {
+      return false;
+    }
+
+    const cost = request.actionPointCost ?? distance;
     if (cost < 0 || actionPoints.current < cost) {
       return false;
     }
