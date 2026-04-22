@@ -1,30 +1,34 @@
-# Tactical Engine - Appearance Scaffolding
+# Tactical Engine (Monorepo)
 
-This repository includes a reusable, engine-level appearance scaffold for:
-- Body archetypes and rig profiles
-- Animation set binding
-- Gear-driven visual layers
-- Runtime appearance resolution with fallback warnings
+This repository is a TypeScript tactical-combat engine workspace with a playable web demo and an example rules/content pack. The current focus is validating engine architecture and integration seams, not shipping a production-complete game stack.
 
-## Files
-- `src/appearance/types.ts`: Core data contracts
-- `src/appearance/resolveAppearance.ts`: Deterministic appearance composer
-- `src/appearance/index.ts`: Module exports
-- `examples/appearance.example.json`: Example content pack snippet
+## Repository structure
 
-## Design goals
-1. Keep rendering and gameplay decoupled.
-2. Support many games by treating body, gear, and animations as data.
-3. Allow gear to alter appearance (including hidden slots and animation overrides).
-4. Stay mobile-friendly by producing a flat resolved layer stack.
+- `packages/engine-core` — Turn flow, simulation contracts, state reducers, and action resolution primitives.
+- `packages/engine-spatial` — Grid/pathfinding, line-of-sight, and target range utilities.
+- `packages/engine-entities` — ECS-style entity store, components, and gameplay systems adapters.
+- `packages/rules-sdk` — Rules/content interfaces and helpers used by game-specific rulesets.
+- `apps/web-client` — React + Vite demo client that renders and drives the current engine loop.
+- `games/example-skirmish` — Example scenario content and rules wiring used for development and integration checks.
 
-## Local setup
+## Stable vs experimental
+
+- `packages/engine-core`: **Stable for internal iteration** on turn/state/action fundamentals, but still evolving for broader external API guarantees.
+- `packages/engine-spatial`: **Stable for current grid-combat demo use cases**, with extension points still considered experimental.
+- `packages/engine-entities`: **Experimental**, with system boundaries and component contracts still being refined.
+- `packages/rules-sdk`: **Experimental**, intended as a shaping layer while canonical rules/content APIs settle.
+- `apps/web-client`: **Experimental demo app**, useful for validation but not hardened as a production client.
+- `games/example-skirmish`: **Experimental sample content**, intentionally scoped as a reference scenario rather than a full game.
+
+## Setup
 
 ### Prerequisites
+
 - Node.js 20+
 - npm 10+
 
 ### Install dependencies
+
 From repository root:
 
 ```bash
@@ -32,24 +36,39 @@ npm ci
 npm install --prefix apps/web-client
 ```
 
-### Build
-Build all workspace packages/apps:
+## Root workspace commands
+
+Run these from repository root:
 
 ```bash
-npm run build
-```
-
-### Run CI-equivalent checks locally
-Typecheck/test gate used by CI:
-
-```bash
+npm run typecheck
+npm run build:test-artifacts
+npm run test
 npm run ci
 ```
 
-### Web client only (optional)
-Install and run just the Vite app from `apps/web-client`:
+What they do:
+
+- `typecheck` validates TypeScript across engine, packages, apps, and tests via `tsconfig.tests.json`.
+- `build:test-artifacts` compiles test-targeted artifacts into `.tmp-test-dist`.
+- `test` builds test artifacts and runs Node test suites.
+- `ci` runs the local CI gate (`typecheck` + `test`).
+
+## App-specific commands (`apps/web-client`)
 
 ```bash
-npm install --prefix apps/web-client
 npm run dev --prefix apps/web-client
+npm run build --prefix apps/web-client
+npm run typecheck --prefix apps/web-client
+npm run preview --prefix apps/web-client
 ```
+
+## Near-term roadmap (engine hardening)
+
+1. **Scheduler hardening**: tighten deterministic turn scheduling and explicit phase transitions.
+2. **Action/effect pipeline**: formalize action validation, effect application ordering, and rollback-safe resolution hooks.
+3. **Scenario wiring**: strengthen game-content bootstrap/wiring from `games/example-skirmish` into reusable rules-driven scenario assembly.
+
+## Current maturity expectations
+
+This repo demonstrates a working vertical slice and architecture direction. Several modules are intentionally marked experimental, and some capabilities are validated primarily through the demo path and integration tests rather than production-ready runtime guarantees.
