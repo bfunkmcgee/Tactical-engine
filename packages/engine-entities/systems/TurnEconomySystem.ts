@@ -1,9 +1,32 @@
+import type { GameEvent, GameState } from '../../engine-core/state/GameState';
 import { EntityStore, EntityId } from '../EntityStore';
 import { ACTION_POINTS_COMPONENT, ActionPoints } from '../components/ActionPoints';
 import { COOLDOWNS_COMPONENT, Cooldowns } from '../components/Cooldowns';
 import { computeEffectiveStats } from './StatusSystem';
 
 export class TurnEconomySystem {
+  collectTurnStartEvents(state: GameState): readonly GameEvent[] {
+    return Object.values(state.units).flatMap((unit) => {
+      const current = unit.actionPoints;
+      const max = unit.maxActionPoints;
+      if (current === undefined || max === undefined || current >= max) {
+        return [];
+      }
+
+      return [
+        {
+          kind: 'ACTION_POINTS_CHANGED' as const,
+          unitId: unit.id,
+          from: current,
+          to: Math.min(max, current + 1),
+          reason: 'TURN_START' as const,
+          turn: state.turn,
+          round: state.round,
+        },
+      ];
+    });
+  }
+
   startTurn(store: EntityStore): void {
     for (const { entityId, data } of store.getComponentEntries<ActionPoints>(ACTION_POINTS_COMPONENT)) {
       const effectiveStats = computeEffectiveStats(store, entityId);

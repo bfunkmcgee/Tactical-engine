@@ -90,22 +90,6 @@ export class ActionResolver {
       },
     ];
 
-    if (action.type === 'ATTACK') {
-      const payload = action.payload && 'targetId' in action.payload ? action.payload : undefined;
-      const amount = Math.max(0, payload?.amount ?? 1);
-      const targetId = payload?.targetId;
-
-      if (targetId) {
-        events.push({
-          kind: 'UNIT_DAMAGED',
-          sourceId: action.actorId,
-          targetId,
-          amount,
-          turn: state.turn,
-          round: state.round,
-        });
-      }
-    }
 
     return events;
   }

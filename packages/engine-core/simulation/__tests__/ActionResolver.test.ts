@@ -67,7 +67,7 @@ test('ActionResolver does not mutate state for invalid actions', () => {
   assert.equal(result.state, state);
 });
 
-test('ActionResolver emits attack events for valid actions', () => {
+test('ActionResolver emits canonical action event for valid actions', () => {
   const state = createState();
   const action: Action = {
     id: 'attack:A:u-b',
@@ -77,7 +77,7 @@ test('ActionResolver emits attack events for valid actions', () => {
   };
 
   const result = resolver.applyAction(state, action);
-  assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED', 'UNIT_DAMAGED']);
-  assert.equal(result.state.units['u-b']?.hp, 7);
+  assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED']);
+  assert.equal(result.state.units['u-b']?.hp, 8);
   assert.equal(result.state.pendingActions.length, 1);
 });

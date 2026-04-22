@@ -15,6 +15,7 @@ export interface SimulationUnit {
   readonly health: number;
   readonly maxHealth?: number;
   readonly actionPoints?: number;
+  readonly maxActionPoints?: number;
   readonly cooldowns?: Readonly<Record<string, number>>;
   readonly position?: Position;
   readonly statusEffectIds?: readonly string[];
@@ -25,20 +26,36 @@ export interface EndCommandActionPayload {
 }
 
 export interface AttackActionPayload {
+  readonly sourceUnitId?: UnitId;
   readonly targetId: UnitId;
   readonly amount?: number;
   readonly abilityId?: string;
+}
+
+export interface MoveActionPayload {
+  readonly unitId: UnitId;
+  readonly to: Position;
+  readonly actionPointCost?: number;
+}
+
+export interface ApplyStatusActionPayload {
+  readonly sourceUnitId?: UnitId;
+  readonly targetId: UnitId;
+  readonly statusId: string;
+  readonly duration?: number;
 }
 
 export interface PassActionPayload {
   readonly phase?: Phase;
 }
 
-export type ActionType = 'END_COMMAND' | 'ATTACK' | 'PASS';
+export type ActionType = 'END_COMMAND' | 'ATTACK' | 'MOVE' | 'APPLY_STATUS' | 'PASS';
 
 export type ActionPayload =
   | EndCommandActionPayload
   | AttackActionPayload
+  | MoveActionPayload
+  | ApplyStatusActionPayload
   | PassActionPayload
   | undefined;
 
@@ -70,10 +87,55 @@ export type SimulationEvent =
       readonly round: number;
     }
   | {
+      readonly kind: 'UNIT_MOVED';
+      readonly unitId: UnitId;
+      readonly from: Position;
+      readonly to: Position;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
       readonly kind: 'UNIT_DAMAGED';
       readonly sourceId: TeamId;
+      readonly sourceUnitId?: UnitId;
       readonly targetId: UnitId;
       readonly amount: number;
+      readonly abilityId?: string;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
+      readonly kind: 'UNIT_DEFEATED';
+      readonly sourceId?: TeamId;
+      readonly sourceUnitId?: UnitId;
+      readonly targetId: UnitId;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
+      readonly kind: 'STATUS_APPLIED';
+      readonly sourceUnitId?: UnitId;
+      readonly targetId: UnitId;
+      readonly statusId: string;
+      readonly duration: number;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
+      readonly kind: 'ACTION_POINTS_CHANGED';
+      readonly unitId: UnitId;
+      readonly from: number;
+      readonly to: number;
+      readonly reason: 'MOVE' | 'ATTACK' | 'TURN_START' | 'EFFECT';
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
+      readonly kind: 'COOLDOWN_TICKED';
+      readonly unitId: UnitId;
+      readonly abilityId: string;
+      readonly from: number;
+      readonly to: number;
       readonly turn: number;
       readonly round: number;
     }

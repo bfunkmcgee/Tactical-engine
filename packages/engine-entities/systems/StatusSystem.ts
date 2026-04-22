@@ -1,3 +1,4 @@
+import type { GameEvent } from '../../engine-core/state/GameState';
 import { EntityStore, EntityId } from '../EntityStore';
 import { STATS_COMPONENT, Stats } from '../components/Stats';
 import {
@@ -92,6 +93,65 @@ export class StatusSystem {
     store.upsertComponent<StatusEffects>(STATUS_EFFECTS_COMPONENT, entityId, {
       effects: this.sortEffects(next),
     });
+  }
+
+
+  collectTickEvents(store: EntityStore, entityId: EntityId, turn = 0, round = 0): readonly GameEvent[] {
+    const effectsComponent = store.getComponent<StatusEffects>(STATUS_EFFECTS_COMPONENT, entityId);
+    const stats = store.getComponent<Stats>(STATS_COMPONENT, entityId);
+
+    if (!effectsComponent || !stats) {
+      return [];
+    }
+
+    let nextHp = stats.hp;
+
+    for (const effect of this.sortEffects(effectsComponent.effects)) {
+      for (const modifier of effect.modifiers) {
+        if (modifier.type === 'dot') {
+          nextHp -= modifier.amountPerTurn * effect.stacks;
+        }
+        if (modifier.type === 'hot') {
+          nextHp += modifier.amountPerTurn * effect.stacks;
+        }
+      }
+    }
+
+    const clampedHp = Math.max(0, Math.min(stats.maxHp, nextHp));
+    const events: GameEvent[] = [];
+    if (clampedHp < stats.hp) {
+      events.push({
+        kind: 'UNIT_DAMAGED',
+        sourceId: 'status',
+        targetId: entityId,
+        amount: stats.hp - clampedHp,
+        turn,
+        round,
+      });
+    }
+
+    const decayed = effectsComponent.effects
+      .map((effect) => ({ ...effect, remainingTurns: effect.remainingTurns - 1 }))
+      .filter((effect) => effect.remainingTurns > 0);
+
+    for (const previous of effectsComponent.effects) {
+      const next = decayed.find((candidate) => candidate.effectId === previous.effectId);
+      if (!next) {
+        continue;
+      }
+      if (previous.remainingTurns !== next.remainingTurns) {
+        events.push({
+          kind: 'STATUS_APPLIED',
+          targetId: entityId,
+          statusId: next.effectId,
+          duration: next.remainingTurns,
+          turn,
+          round,
+        });
+      }
+    }
+
+    return events;
   }
 
   tick(store: EntityStore, entityId: EntityId): void {
