@@ -8,9 +8,7 @@ import {
   type StateTransitionResult,
   type UnitState,
 } from '../state/GameState';
-import { SquareGridAdapter } from '../../engine-spatial/grid/GridAdapter';
-import { LineOfSight } from '../../engine-spatial/los/LineOfSight';
-import { Targeting } from '../../engine-spatial/range/Targeting';
+import { LineOfSight, SquareGridAdapter, Targeting } from 'engine-spatial';
 import { DemoLegalActionGenerator, type LegalActionGenerator } from './LegalActionGenerator';
 import type { RuleActionAdapter } from './RuleAdapter';
 

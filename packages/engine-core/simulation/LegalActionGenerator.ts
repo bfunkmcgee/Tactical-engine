@@ -1,5 +1,5 @@
 import { getActiveActorId, toRuleEvaluationState, type Action, type GameState, type UnitState } from '../state/GameState';
-import type { ContentIndex, RuleSet } from '../../rules-sdk/src';
+import type { ContentIndex, RuleSet } from 'rules-sdk';
 
 export interface LegalActionGenerator {
   getLegalActions(state: GameState, actorId: string): Action[];

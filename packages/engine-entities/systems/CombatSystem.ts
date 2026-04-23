@@ -1,4 +1,4 @@
-import type { GameEvent } from '../../engine-core/state/GameState';
+import type { GameEvent } from 'engine-core';
 import { EntityStore, EntityId } from '../EntityStore';
 import { ACTION_POINTS_COMPONENT, ActionPoints } from '../components/ActionPoints';
 import { STATS_COMPONENT, Stats } from '../components/Stats';
