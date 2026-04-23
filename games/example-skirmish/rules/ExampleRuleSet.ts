@@ -15,6 +15,7 @@ import {
   createContentIndex,
   DamageResolution,
   Position,
+  ResolvedStatusApplication,
   RuleSet,
   UnitId,
   VictoryResult,
@@ -154,7 +155,7 @@ export class ExampleRuleSet implements RuleSet {
     return {
       amount,
       defeated,
-      appliedStatusEffectIds: this.rollStatusApplications(state, source.id, target.id, ability),
+      appliedStatusApplications: this.rollStatusApplications(state, source.id, target.id, ability),
       appliedCooldownTurns: ability.cooldownTurns,
     };
   }
@@ -351,11 +352,11 @@ export class ExampleRuleSet implements RuleSet {
     sourceUnitId: string,
     targetUnitId: string,
     ability: AbilityDefinition,
-  ): string[] {
+  ): ResolvedStatusApplication[] {
     const applications = ability.statusApplications ?? [];
     return applications.flatMap((application) => {
       const chance = application.chance ?? 1;
-      const turns = Math.max(1, application.durationTurns ?? 1);
+      const durationTurns = Math.max(1, application.durationTurns ?? 1);
       const stacks = Math.max(1, application.stacks ?? 1);
       const didProc = deterministicProc(state.turn, sourceUnitId, targetUnitId, `${ability.id}:${application.statusId}`, chance);
 
@@ -363,7 +364,13 @@ export class ExampleRuleSet implements RuleSet {
         return [];
       }
 
-      return Array.from({ length: stacks }, () => `${application.statusId}:${turns}`);
+      return [
+        {
+          statusId: application.statusId,
+          durationTurns,
+          stacks,
+        },
+      ];
     });
   }
 

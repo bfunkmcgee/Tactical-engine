@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { ActionResolver } from '../ActionResolver';
 import { createInitialState, type GameState, type UnitState } from '../../state/GameState';
+import type { RuleActionAdapter } from '../RuleAdapter';
 
 function createState(units?: UnitState[]): GameState {
   return {
@@ -61,4 +62,35 @@ test('ATTACK pipeline emits UNIT_DEFEATED when damage reduces hp to zero', () =>
     'UNIT_DEFEATED',
   ]);
   assert.equal(result.state.units['u-b']?.hp, 0);
+});
+
+test('ATTACK pipeline emits status events using rule-provided duration and stacks', () => {
+  const state = createState();
+  const attack = resolver.getLegalActions(state, 'A').find((action) => action.type === 'ATTACK');
+  assert.ok(attack);
+  if (!attack) {
+    return;
+  }
+
+  const ruleAdapter: RuleActionAdapter = {
+    resolveAttack: () => ({
+      amount: 2,
+      defeated: false,
+      sourceUnitId: 'u-a',
+      targetUnitId: 'u-b',
+      appliedStatusApplications: [{ statusId: 'dot:4', duration: 3, stacks: 2 }],
+    }),
+  };
+  const resolverWithRuleAdapter = new ActionResolver(undefined, ruleAdapter);
+  const result = resolverWithRuleAdapter.applyAction(state, attack);
+
+  const statusEvents = result.events.filter((event) => event.kind === 'STATUS_APPLIED');
+  assert.equal(statusEvents.length, 2);
+  for (const event of statusEvents) {
+    if (event.kind !== 'STATUS_APPLIED') {
+      continue;
+    }
+    assert.equal(event.statusId, 'dot:4');
+    assert.equal(event.duration, 3);
+  }
 });
