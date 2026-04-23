@@ -77,12 +77,25 @@ export class ExampleRuleSet implements RuleSet {
   canMove(state: BattleState, unitId: UnitId, to: Position, content: ContentIndex): boolean {
     const unit = state.units.find((candidate) => candidate.id === unitId);
     if (!unit?.position || !unit.definitionId) return false;
+    if (unit.health <= 0) return false;
+
+    if (unit.position.x === to.x && unit.position.y === to.y) {
+      return false;
+    }
 
     const definition = content.units[unit.definitionId];
     if (!definition) return false;
 
     const map = content.maps[state.mapId];
     if (!map || to.x < 0 || to.x >= map.width || to.y < 0 || to.y >= map.height) return false;
+
+    const isOccupied = state.units.some(
+      (candidate) =>
+        candidate.health > 0 &&
+        candidate.position?.x === to.x &&
+        candidate.position?.y === to.y,
+    );
+    if (isOccupied) return false;
 
     const destinationTile = this.getTileAtPosition(to, state, content);
     const distance = manhattanDistance(unit.position, to);
