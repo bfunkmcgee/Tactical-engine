@@ -6,7 +6,16 @@ import { computeEffectiveStats } from './StatusSystem';
 
 export class TurnEconomySystem {
   collectTurnStartEvents(state: GameState): readonly GameEvent[] {
+    const activeSlot = state.activeActivationSlot;
+    const slotMatchesUnit = Boolean(state.units[activeSlot.entityId]);
+    const activeTeamId = activeSlot.teamId ?? state.units[activeSlot.entityId]?.ownerId;
+
     return Object.values(state.units).flatMap((unit) => {
+      const isEligible = slotMatchesUnit ? unit.id === activeSlot.entityId : unit.ownerId === activeTeamId;
+      if (!isEligible) {
+        return [];
+      }
+
       const current = unit.actionPoints;
       const max = unit.maxActionPoints;
       if (current === undefined || max === undefined || current >= max) {
