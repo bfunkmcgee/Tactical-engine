@@ -207,6 +207,95 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
       };
     }
 
+    case 'STATUS_TICKED': {
+      const target = state.units[event.targetId];
+      if (!target) {
+        return state;
+      }
+
+      const normalizedExistingEffects = normalizeActiveEffects(target.activeEffects);
+      const effectKey = getEffectKey(event.statusId, event.sourceUnitId);
+      const nextEffectsByKey = normalizedExistingEffects.reduce<Map<string, ActiveEffect>>((acc, effect) => {
+        acc.set(getEffectKey(effect.effectId, effect.sourceUnitId), effect);
+        return acc;
+      }, new Map());
+      const existingEffect =
+        nextEffectsByKey.get(effectKey) ??
+        (event.sourceUnitId ? nextEffectsByKey.get(getEffectKey(event.statusId, undefined)) : undefined);
+      if (!existingEffect) {
+        return state;
+      }
+      if (existingEffect && event.sourceUnitId && !nextEffectsByKey.has(effectKey)) {
+        nextEffectsByKey.delete(getEffectKey(event.statusId, undefined));
+      }
+
+      nextEffectsByKey.set(effectKey, {
+        ...existingEffect,
+        sourceUnitId: event.sourceUnitId ?? existingEffect.sourceUnitId,
+        duration: event.duration,
+      });
+
+      const activeEffects = Array.from(nextEffectsByKey.values()).sort(compareActiveEffects);
+
+      return {
+        ...state,
+        units: {
+          ...state.units,
+          [target.id]: {
+            ...target,
+            activeEffects,
+          },
+        },
+      };
+    }
+
+    case 'STATUS_REMOVED': {
+      const target = state.units[event.targetId];
+      if (!target) {
+        return state;
+      }
+
+      const normalizedExistingEffects = normalizeActiveEffects(target.activeEffects);
+      const nextEffectsByKey = normalizedExistingEffects.reduce<Map<string, ActiveEffect>>((acc, effect) => {
+        acc.set(getEffectKey(effect.effectId, effect.sourceUnitId), effect);
+        return acc;
+      }, new Map());
+      const effectKey = getEffectKey(event.statusId, event.sourceUnitId);
+
+      if (nextEffectsByKey.delete(effectKey)) {
+        return {
+          ...state,
+          units: {
+            ...state.units,
+            [target.id]: {
+              ...target,
+              activeEffects: Array.from(nextEffectsByKey.values()).sort(compareActiveEffects),
+            },
+          },
+        };
+      }
+
+      if (event.sourceUnitId) {
+        return state;
+      }
+
+      const filteredEffects = normalizedExistingEffects.filter((effect) => effect.effectId !== event.statusId);
+      if (filteredEffects.length === normalizedExistingEffects.length) {
+        return state;
+      }
+
+      return {
+        ...state,
+        units: {
+          ...state.units,
+          [target.id]: {
+            ...target,
+            activeEffects: filteredEffects.sort(compareActiveEffects),
+          },
+        },
+      };
+    }
+
     case 'ACTION_POINTS_CHANGED': {
       const unit = state.units[event.unitId];
       if (!unit) {
