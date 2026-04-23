@@ -4,6 +4,7 @@ import {
   Engine,
   RulesetLegalActionGenerator,
   RulesSdkActionAdapter,
+  RulesSdkMatchOutcomeEvaluator,
   type GameState,
   type UnitState,
 } from 'engine-core';
@@ -89,13 +90,19 @@ export function createExampleScenarioRuntime(): ExampleScenarioRuntime {
     defaultAttackAbilityId: 'rifle_shot',
   });
   const actionResolver = new ActionResolver(legalActions, ruleAdapter);
+  const matchOutcomeEvaluator = new RulesSdkMatchOutcomeEvaluator({
+    ruleSet,
+    content: exampleContent,
+    mapId: EXAMPLE_MAP_ID,
+    defaultAttackAbilityId: 'rifle_shot',
+  });
 
   return {
     mapId: EXAMPLE_MAP_ID,
     players: [...EXAMPLE_PLAYERS],
     units: [...EXAMPLE_UNITS],
     ruleSet,
-    engine: new Engine(actionResolver),
+    engine: new Engine(actionResolver, undefined, undefined, undefined, undefined, undefined, undefined, undefined, matchOutcomeEvaluator),
     createInitialState: () => createInitialState(EXAMPLE_PLAYERS, EXAMPLE_UNITS),
   };
 }

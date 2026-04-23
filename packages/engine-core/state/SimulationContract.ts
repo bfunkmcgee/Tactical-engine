@@ -1,6 +1,7 @@
 export type UnitId = string;
 export type TeamId = string;
 export type ActivationId = string;
+export type MatchStatus = 'IN_PROGRESS' | 'ENDED';
 
 export type Phase = 'START_TURN' | 'COMMAND' | 'RESOLUTION' | 'END_TURN';
 
@@ -208,6 +209,13 @@ export type SimulationEvent =
       readonly kind: 'INTEGRITY_VIOLATION';
       readonly invariant: string;
       readonly detail: string;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
+      readonly kind: 'MATCH_ENDED';
+      readonly winnerTeamId?: TeamId;
+      readonly isDraw: boolean;
       readonly turn: number;
       readonly round: number;
     };

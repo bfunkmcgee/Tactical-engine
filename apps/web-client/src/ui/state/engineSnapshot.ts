@@ -32,6 +32,9 @@ export type EngineSnapshot = {
   turn: number;
   round: number;
   activeActorId: string;
+  matchStatus: GameState['matchStatus'];
+  winnerTeamId?: string;
+  isDraw: boolean;
 };
 
 const TEAM_COLORS: Record<string, string> = {
@@ -78,6 +81,8 @@ function toEventFeedback(event: GameEvent): string | null {
       return `Turn ${event.turn}, Round ${event.round}: ${event.actorId}`;
     case 'INTEGRITY_VIOLATION':
       return `Integrity warning: ${event.invariant}`;
+    case 'MATCH_ENDED':
+      return event.isDraw ? 'Match ended in a draw.' : `Match ended. Winner: ${event.winnerTeamId ?? 'unknown'}`;
     default:
       return null;
   }
@@ -111,7 +116,7 @@ export function projectEngineSnapshot(params: {
   const selectedUnit = selection ? state.units[selection] : undefined;
   const activeActorId = getActiveActorId(state);
   const selectedLegalActions =
-    selectedUnit && selectedUnit.ownerId === activeActorId
+    state.matchStatus === 'IN_PROGRESS' && selectedUnit && selectedUnit.ownerId === activeActorId
       ? getLegalActions(state, activeActorId).map((action) => ({
           command: action,
           label: toActionLabel(action),
@@ -134,5 +139,8 @@ export function projectEngineSnapshot(params: {
     turn: state.turn,
     round: state.round,
     activeActorId,
+    matchStatus: state.matchStatus,
+    winnerTeamId: state.winnerTeamId,
+    isDraw: state.isDraw,
   };
 }
