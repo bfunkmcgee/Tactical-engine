@@ -13,6 +13,12 @@ export type { EngineSnapshot, Entity, ViewState, EngineActionView } from './engi
 
 const scenarioRuntime = createExampleScenarioRuntime();
 const engine = scenarioRuntime.engine;
+
+type ScenarioTeamColorsRuntime = {
+  readonly teamColors?: Readonly<Record<string, string>>;
+};
+
+const runtimeTeamColors = (scenarioRuntime as ScenarioTeamColorsRuntime).teamColors;
 const INITIAL_VIEW: ViewState = { zoom: 1, offsetX: 0, offsetY: 0 };
 
 function createInitialEngineState(): GameState {
@@ -35,6 +41,7 @@ function toSnapshot(store: StoreState): EngineSnapshot {
     tick: store.tick,
     view: store.view,
     getLegalActions: engine.getLegalActions.bind(engine),
+    teamColors: runtimeTeamColors,
   });
 }
 

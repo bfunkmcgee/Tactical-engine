@@ -1,8 +1,49 @@
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { BoardCanvas } from './ui/board/BoardCanvas';
 import { HUDPanel } from './ui/hud/HUDPanel';
 import { useGestureInput } from './ui/input/useGestureInput';
 import { usePresentationStore } from './ui/state/presentationStore';
+
+export type LayoutClass = 'layout-desktop' | 'layout-tablet' | 'layout-mobile';
+
+type LayoutMedia = {
+  desktop: MediaQueryList;
+  tablet: MediaQueryList;
+};
+
+export function resolveLayoutClass(media: LayoutMedia): LayoutClass {
+  if (media.desktop.matches) {
+    return 'layout-desktop';
+  }
+
+  if (media.tablet.matches) {
+    return 'layout-tablet';
+  }
+
+  return 'layout-mobile';
+}
+
+export function subscribeLayoutClass(
+  matchMediaFn: (query: string) => MediaQueryList,
+  onChange: (layoutClass: LayoutClass) => void,
+): () => void {
+  const media = {
+    desktop: matchMediaFn('(min-width: 1200px)'),
+    tablet: matchMediaFn('(min-width: 768px)'),
+  };
+
+  const emit = () => onChange(resolveLayoutClass(media));
+  const listener = () => emit();
+
+  media.desktop.addEventListener('change', listener);
+  media.tablet.addEventListener('change', listener);
+  emit();
+
+  return () => {
+    media.desktop.removeEventListener('change', listener);
+    media.tablet.removeEventListener('change', listener);
+  };
+}
 
 export function App() {
   const { snapshot, actions } = usePresentationStore();
@@ -13,15 +54,9 @@ export function App() {
     onLongPress: actions.inspect,
   });
 
-  const layoutClass = useMemo(() => {
-    if (window.matchMedia('(min-width: 1200px)').matches) {
-      return 'layout-desktop';
-    }
-    if (window.matchMedia('(min-width: 768px)').matches) {
-      return 'layout-tablet';
-    }
-    return 'layout-mobile';
-  }, []);
+  const [layoutClass, setLayoutClass] = useState<LayoutClass>('layout-mobile');
+
+  useEffect(() => subscribeLayoutClass(window.matchMedia.bind(window), setLayoutClass), []);
 
   return (
     <div className={`app-shell ${layoutClass}`}>

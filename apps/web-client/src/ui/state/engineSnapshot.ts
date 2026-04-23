@@ -37,10 +37,7 @@ export type EngineSnapshot = {
   isDraw: boolean;
 };
 
-const TEAM_COLORS: Record<string, string> = {
-  'player-1': '#22c55e',
-  'player-2': '#eab308',
-};
+export type TeamColorMap = Readonly<Record<string, string>>;
 
 const TILE_SIZE = 56;
 
@@ -88,6 +85,59 @@ function toEventFeedback(event: GameEvent): string | null {
   }
 }
 
+function toHexChannel(value: number): string {
+  return Math.round(Math.max(0, Math.min(255, value)))
+    .toString(16)
+    .padStart(2, '0');
+}
+
+function hslToHex(hue: number, saturation: number, lightness: number): string {
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const huePrime = (hue % 360) / 60;
+  const secondary = chroma * (1 - Math.abs((huePrime % 2) - 1));
+
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+
+  if (huePrime >= 0 && huePrime < 1) {
+    red = chroma;
+    green = secondary;
+  } else if (huePrime < 2) {
+    red = secondary;
+    green = chroma;
+  } else if (huePrime < 3) {
+    green = chroma;
+    blue = secondary;
+  } else if (huePrime < 4) {
+    green = secondary;
+    blue = chroma;
+  } else if (huePrime < 5) {
+    red = secondary;
+    blue = chroma;
+  } else {
+    red = chroma;
+    blue = secondary;
+  }
+
+  const match = lightness - chroma / 2;
+
+  return `#${toHexChannel((red + match) * 255)}${toHexChannel((green + match) * 255)}${toHexChannel((blue + match) * 255)}`;
+}
+
+function hashTeamId(teamId: string): number {
+  return teamId.split('').reduce((hash, character) => (hash * 31 + character.charCodeAt(0)) % 360, 0);
+}
+
+export function getDeterministicTeamColor(teamId: string): string {
+  const hue = hashTeamId(teamId);
+  return hslToHex(hue, 0.68, 0.52);
+}
+
+export function resolveTeamColor(teamId: string, teamColors?: TeamColorMap): string {
+  return teamColors?.[teamId] ?? getDeterministicTeamColor(teamId);
+}
+
 export function projectEngineSnapshot(params: {
   state: GameState;
   events: readonly GameEvent[];
@@ -95,8 +145,9 @@ export function projectEngineSnapshot(params: {
   tick: number;
   view: ViewState;
   getLegalActions: (state: GameState, actorId: string) => readonly Action[];
+  teamColors?: TeamColorMap;
 }): EngineSnapshot {
-  const { state, events, selection, tick, view, getLegalActions } = params;
+  const { state, events, selection, tick, view, getLegalActions, teamColors } = params;
 
   const entities = Object.values(state.units)
     .sort((left, right) => left.id.localeCompare(right.id))
@@ -107,7 +158,7 @@ export function projectEngineSnapshot(params: {
         id: unit.id,
         x: logicalX * TILE_SIZE,
         y: logicalY * TILE_SIZE,
-        color: TEAM_COLORS[unit.ownerId] ?? '#38bdf8',
+        color: resolveTeamColor(unit.ownerId, teamColors),
         hp: unit.hp,
         maxHp: unit.maxHp,
       };
