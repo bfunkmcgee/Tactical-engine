@@ -1,4 +1,4 @@
-import type { RuleEvaluationState, TeamId, UnitId } from '../../engine-core/state/SimulationContract';
+import type { RuleEvaluationState, TeamId, UnitId } from 'engine-core';
 import type { BattleState } from './RuleSet';
 import type { TeamId as HookTeamId, UnitId as HookUnitId } from './hooks';
 

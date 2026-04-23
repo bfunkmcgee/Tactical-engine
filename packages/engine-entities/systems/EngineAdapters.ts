@@ -1,5 +1,5 @@
-import type { Action, GameEvent, GameState } from '../../engine-core/state/GameState';
-import type { SimulationStrategy, StrategyContext, TurnStartStrategy } from '../../engine-core/simulation/Engine';
+import type { Action, GameEvent, GameState } from 'engine-core';
+import type { SimulationStrategy, StrategyContext, TurnStartStrategy } from 'engine-core';
 import { EntityStore } from '../EntityStore';
 import { POSITION_COMPONENT } from '../components/Position';
 import { CombatSystem } from './CombatSystem';

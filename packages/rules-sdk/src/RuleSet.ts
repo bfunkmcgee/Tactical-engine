@@ -1,4 +1,4 @@
-import type { Position, RuleEvaluationState, TeamId, UnitId } from '../../engine-core/state/SimulationContract';
+import type { Position, RuleEvaluationState, TeamId, UnitId } from 'engine-core';
 import type { ContentIndex } from './contentIndex';
 import type { RuleHooks } from './hooks';
 
