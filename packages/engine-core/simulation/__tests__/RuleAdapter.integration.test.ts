@@ -99,3 +99,55 @@ test('ExampleRuleSet toEngineEvents forwards turn and round from hook events', (
   assert.equal(defeated[0]?.turn, 8);
   assert.equal(defeated[0]?.round, 3);
 });
+
+test('engine emits MATCH_ENDED and stores terminal outcome after victory', () => {
+  const runtime = createExampleScenarioRuntime();
+  const initial = runtime.createInitialState();
+  const positioned = {
+    ...initial,
+    phase: 'COMMAND' as const,
+    activeActivationSlot: {
+      id: 'team:alliance',
+      entityId: 'alliance',
+      teamId: 'alliance',
+      label: 'Team alliance',
+    },
+    units: {
+      'alliance-1': {
+        ...initial.units['alliance-1']!,
+        position: { x: 1, y: 1 },
+      },
+      'raider-1': {
+        ...initial.units['raider-1']!,
+        hp: 30,
+        position: { x: 2, y: 1 },
+      },
+    },
+  };
+
+  const attack = runtime.engine
+    .getLegalActions(positioned, 'alliance')
+    .find((action) => action.type === 'ATTACK' && action.payload && typeof action.payload === 'object');
+
+  assert.ok(attack);
+  if (!attack) {
+    return;
+  }
+
+  const result = runtime.engine.step(positioned, attack);
+  const terminalEvent = result.events.find((event) => event.kind === 'MATCH_ENDED');
+
+  assert.ok(terminalEvent);
+  if (terminalEvent?.kind === 'MATCH_ENDED') {
+    assert.equal(terminalEvent.winnerTeamId, 'alliance');
+    assert.equal(terminalEvent.isDraw, false);
+  }
+
+  assert.equal(result.state.matchStatus, 'ENDED');
+  assert.equal(result.state.winnerTeamId, 'alliance');
+  assert.equal(result.state.isDraw, false);
+
+  const followUp = runtime.engine.step(result.state, attack);
+  assert.equal(followUp.events.length, 0);
+  assert.equal(followUp.state, result.state);
+});

@@ -93,6 +93,10 @@ export function usePresentationStore() {
       },
       triggerAction: (action: Action) => {
         setStore((prev) => {
+          if (prev.state.matchStatus === 'ENDED') {
+            return prev;
+          }
+
           const activeActorId = getActiveActorId(prev.state);
           const legalActions = engine.getLegalActions(prev.state, activeActorId);
           const requestedPayload = JSON.stringify(action.payload ?? null);

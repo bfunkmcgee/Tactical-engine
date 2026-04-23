@@ -5,6 +5,7 @@ import type {
   Position,
   RuleEvaluationState,
   SchedulerStateSnapshot,
+  MatchStatus,
   SimulationAction,
   SimulationEvent,
   SimulationUnit,
@@ -38,6 +39,9 @@ export interface GameState {
   readonly units: Readonly<Record<UnitId, UnitState>>;
   readonly pendingActions: readonly Action[];
   readonly eventLog: readonly GameEvent[];
+  readonly matchStatus: MatchStatus;
+  readonly winnerTeamId?: TeamId;
+  readonly isDraw: boolean;
 }
 
 export interface StateTransitionResult {
@@ -221,6 +225,15 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
       };
     }
 
+    case 'MATCH_ENDED': {
+      return {
+        ...state,
+        matchStatus: 'ENDED',
+        winnerTeamId: event.winnerTeamId,
+        isDraw: event.isDraw,
+      };
+    }
+
     case 'COOLDOWN_TICKED': {
       const unit = state.units[event.unitId];
       if (!unit) {
@@ -276,6 +289,9 @@ export function createInitialState(players: readonly TeamId[], units: readonly U
     units: unitMap,
     pendingActions: [],
     eventLog: [],
+    matchStatus: 'IN_PROGRESS',
+    winnerTeamId: undefined,
+    isDraw: false,
   };
 }
 

@@ -1,4 +1,4 @@
-import type { ContentIndex, DamageResolution, RuleSet } from '../../rules-sdk/src';
+import type { ContentIndex, DamageResolution, RuleSet, VictoryResult } from '../../rules-sdk/src';
 import { toRuleEvaluationState, type Action, type GameState, type UnitState } from '../state/GameState';
 
 export interface RuleAttackResolution {
@@ -13,6 +13,15 @@ export interface RuleAttackResolution {
 
 export interface RuleActionAdapter {
   resolveAttack(state: GameState, action: Action, actorUnit: UnitState, targetUnit: UnitState): RuleAttackResolution | undefined;
+}
+
+export interface MatchOutcome {
+  readonly winnerTeamId?: string;
+  readonly isDraw: boolean;
+}
+
+export interface MatchOutcomeEvaluator {
+  evaluate(state: GameState): MatchOutcome | null;
 }
 
 export interface RulesSdkActionAdapterOptions {
@@ -86,6 +95,31 @@ export class RulesSdkActionAdapter implements RuleActionAdapter {
       targetUnitId,
       appliedStatusEffectIds: resolution.appliedStatusEffectIds ?? [],
       appliedCooldownTurns: resolution.appliedCooldownTurns,
+    };
+  }
+}
+
+export class RulesSdkMatchOutcomeEvaluator implements MatchOutcomeEvaluator {
+  private readonly options: RulesSdkActionAdapterOptions;
+
+  constructor(options: RulesSdkActionAdapterOptions) {
+    this.options = options;
+  }
+
+  evaluate(state: GameState): MatchOutcome | null {
+    const battleState = toRuleEvaluationState(state, this.options.mapId);
+    const victory = this.options.ruleSet.checkVictory(battleState, this.options.content);
+    return this.toMatchOutcome(victory);
+  }
+
+  private toMatchOutcome(victory: VictoryResult | null): MatchOutcome | null {
+    if (!victory) {
+      return null;
+    }
+
+    return {
+      winnerTeamId: victory.winnerTeamId,
+      isDraw: Boolean(victory.isDraw),
     };
   }
 }

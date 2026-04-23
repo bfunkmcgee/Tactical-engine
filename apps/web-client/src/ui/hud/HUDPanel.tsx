@@ -7,6 +7,9 @@ type HUDPanelProps = {
   turn: number;
   round: number;
   activeActorId: string;
+  matchStatus: 'IN_PROGRESS' | 'ENDED';
+  winnerTeamId?: string;
+  isDraw: boolean;
   feedback: string[];
   legalActions: EngineActionView[];
   onAction: (action: Action) => void;
@@ -18,6 +21,9 @@ export function HUDPanel({
   turn,
   round,
   activeActorId,
+  matchStatus,
+  winnerTeamId,
+  isDraw,
   feedback,
   legalActions,
   onAction,
@@ -27,9 +33,12 @@ export function HUDPanel({
       <div className="hud-meta">
         <p>{selected ? `Selected: ${selected}` : 'No unit selected'}</p>
         <small>{`Round ${round} · Turn ${turn} · ${phase} · ${activeActorId}`}</small>
+        {matchStatus === 'ENDED' ? <small>{isDraw ? 'Result: Draw' : `Winner: ${winnerTeamId ?? 'Unknown'}`}</small> : null}
       </div>
       <div className="hud-actions">
-        {legalActions.length > 0 ? (
+        {matchStatus === 'ENDED' ? (
+          <small>Match ended. Actions are disabled.</small>
+        ) : legalActions.length > 0 ? (
           legalActions.map((action) => (
             <button key={action.command.id} className="hud-button" onClick={() => onAction(action.command)}>
               {action.label}

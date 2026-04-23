@@ -34,6 +34,9 @@ export function App() {
         turn={snapshot.turn}
         round={snapshot.round}
         activeActorId={snapshot.activeActorId}
+        matchStatus={snapshot.matchStatus}
+        winnerTeamId={snapshot.winnerTeamId}
+        isDraw={snapshot.isDraw}
         legalActions={snapshot.selectedLegalActions}
         feedback={snapshot.feedback}
         onAction={actions.triggerAction}

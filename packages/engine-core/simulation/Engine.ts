@@ -1,5 +1,6 @@
 import { ActionResolver } from './ActionResolver';
 import type { LegalActionGenerator } from './LegalActionGenerator';
+import type { MatchOutcomeEvaluator } from './RuleAdapter';
 import { TurnManager } from './TurnManager';
 import { appendEvents, reduceEvents, type Action, type GameEvent, type GameState, type StateTransitionResult } from '../state/GameState';
 
@@ -32,6 +33,7 @@ export class Engine {
   private readonly statusStrategy: SimulationStrategy;
   private readonly spatialStrategy: SimulationStrategy;
   private readonly turnEconomyStrategy: TurnStartStrategy;
+  private readonly matchOutcomeEvaluator?: MatchOutcomeEvaluator;
 
   constructor(
     actionResolver: ActionResolver | undefined = undefined,
@@ -42,6 +44,7 @@ export class Engine {
     turnEconomyStrategy: TurnStartStrategy = NOOP_TURN_START_STRATEGY,
     spatialStrategy: SimulationStrategy = NOOP_STRATEGY,
     legalActionGenerator?: LegalActionGenerator,
+    matchOutcomeEvaluator?: MatchOutcomeEvaluator,
   ) {
     this.actionResolver = actionResolver ?? new ActionResolver(legalActionGenerator);
     this.turnManager = turnManager;
@@ -50,6 +53,7 @@ export class Engine {
     this.statusStrategy = statusStrategy;
     this.turnEconomyStrategy = turnEconomyStrategy;
     this.spatialStrategy = spatialStrategy;
+    this.matchOutcomeEvaluator = matchOutcomeEvaluator;
   }
 
   public applyAction(state: GameState, action: Action): StateTransitionResult {
@@ -57,6 +61,10 @@ export class Engine {
   }
 
   public step(state: GameState, command: Action): StateTransitionResult {
+    if (state.matchStatus === 'ENDED') {
+      return { state, events: [] };
+    }
+
     if (!this.actionResolver.validateAction(state, command)) {
       return { state, events: [] };
     }
@@ -90,6 +98,21 @@ export class Engine {
       if (economyEvents.length > 0) {
         emittedEvents.push(...economyEvents);
         nextState = appendEvents(reduceEvents(nextState, economyEvents), economyEvents);
+      }
+    }
+
+    if (nextState.matchStatus === 'IN_PROGRESS' && this.matchOutcomeEvaluator) {
+      const matchOutcome = this.matchOutcomeEvaluator.evaluate(nextState);
+      if (matchOutcome) {
+        const terminalEvent: GameEvent = {
+          kind: 'MATCH_ENDED',
+          winnerTeamId: matchOutcome.winnerTeamId,
+          isDraw: Boolean(matchOutcome.isDraw),
+          turn: nextState.turn,
+          round: nextState.round,
+        };
+        emittedEvents.push(terminalEvent);
+        nextState = appendEvents(reduceEvents(nextState, [terminalEvent]), [terminalEvent]);
       }
     }
 
