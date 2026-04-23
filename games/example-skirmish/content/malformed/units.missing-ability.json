@@ -1,0 +1,11 @@
+[
+  {
+    "id": "alliance_infantry",
+    "name": "Alliance Infantry",
+    "factionId": "alliance",
+    "maxHealth": 100,
+    "movement": 3,
+    "attackRange": 1,
+    "abilityIds": ["rifle_shot", "missing_ability"]
+  }
+]
