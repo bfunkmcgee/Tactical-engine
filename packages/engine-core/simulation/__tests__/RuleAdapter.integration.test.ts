@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { createExampleScenarioRuntime } from '../../../../games/example-skirmish/scenario/runtime';
+import { exampleContent } from '../../../../games/example-skirmish/rules/ExampleRuleSet';
+import { toRuleEvaluationState } from '../../state/GameState';
 
 test('example scenario runtime bridges rules-sdk legal actions into engine-core', () => {
   const runtime = createExampleScenarioRuntime();
@@ -98,6 +100,66 @@ test('ExampleRuleSet toEngineEvents forwards turn and round from hook events', (
   assert.equal(damaged[0]?.round, 3);
   assert.equal(defeated[0]?.turn, 8);
   assert.equal(defeated[0]?.round, 3);
+});
+
+test('ExampleRuleSet canMove rejects moving into ally-occupied tile', () => {
+  const runtime = createExampleScenarioRuntime();
+  const state = runtime.createInitialState();
+  const battleState = toRuleEvaluationState(state, runtime.mapId);
+
+  const canMove = runtime.ruleSet.canMove(battleState, 'alliance-1', { x: 2, y: 1 }, exampleContent);
+  assert.equal(canMove, false);
+});
+
+test('ExampleRuleSet canMove rejects moving into enemy-occupied tile', () => {
+  const runtime = createExampleScenarioRuntime();
+  const initial = runtime.createInitialState();
+  const state = {
+    ...initial,
+    units: {
+      ...initial.units,
+      'raider-1': {
+        ...initial.units['raider-1']!,
+        position: { x: 2, y: 1 },
+      },
+      'alliance-2': {
+        ...initial.units['alliance-2']!,
+        hp: 0,
+      },
+    },
+  };
+  const battleState = toRuleEvaluationState(state, runtime.mapId);
+
+  const canMove = runtime.ruleSet.canMove(battleState, 'alliance-1', { x: 2, y: 1 }, exampleContent);
+  assert.equal(canMove, false);
+});
+
+test('ExampleRuleSet canMove allows moving into empty tile when constraints pass', () => {
+  const runtime = createExampleScenarioRuntime();
+  const initial = runtime.createInitialState();
+  const state = {
+    ...initial,
+    units: {
+      ...initial.units,
+      'alliance-2': {
+        ...initial.units['alliance-2']!,
+        hp: 0,
+      },
+    },
+  };
+  const battleState = toRuleEvaluationState(state, runtime.mapId);
+
+  const canMove = runtime.ruleSet.canMove(battleState, 'alliance-1', { x: 2, y: 1 }, exampleContent);
+  assert.equal(canMove, true);
+});
+
+test('ExampleRuleSet canMove rejects no-op self movement explicitly', () => {
+  const runtime = createExampleScenarioRuntime();
+  const state = runtime.createInitialState();
+  const battleState = toRuleEvaluationState(state, runtime.mapId);
+
+  const canMove = runtime.ruleSet.canMove(battleState, 'alliance-1', { x: 1, y: 1 }, exampleContent);
+  assert.equal(canMove, false);
 });
 
 test('engine emits MATCH_ENDED and stores terminal outcome after victory', () => {

@@ -400,6 +400,29 @@ export class ActionResolver {
         details: { actorId: action.actorId, sourceUnitId: normalized.unitId, actionType: action.type },
       };
     }
+    const sourcePosition = sourceUnit.position;
+    if (!sourcePosition) {
+      return {
+        isValid: false,
+        reason: 'MISSING_SOURCE_POSITION',
+        details: { actorId: action.actorId, sourceUnitId: normalized.unitId, actionType: action.type },
+      };
+    }
+
+    if (sourcePosition.x === normalized.to.x && sourcePosition.y === normalized.to.y) {
+      return { isValid: false, reason: 'MOVE_DESTINATION_UNCHANGED' };
+    }
+
+    const occupiedByAliveUnit = Object.values(state.units).some(
+      (candidate) =>
+        candidate.id !== sourceUnit.id &&
+        candidate.hp > 0 &&
+        candidate.position?.x === normalized.to.x &&
+        candidate.position?.y === normalized.to.y,
+    );
+    if (occupiedByAliveUnit) {
+      return { isValid: false, reason: 'MOVE_DESTINATION_OCCUPIED' };
+    }
 
     if (legalActions.length === 0) {
       return { isValid: false, reason: 'MOVE_NOT_LEGAL_IN_PHASE' };
