@@ -80,20 +80,17 @@ export class Engine {
       return result.state;
     };
 
-    if (state.phase === 'COMMAND' && command.type === 'END_COMMAND') {
-      nextState = transition(nextState);
-      nextState = transition(nextState);
-      nextState = transition(nextState);
+    for (const step of this.turnManager.getActionPhaseFlow(command.type, state.phase)) {
+      if (step.kind === 'ADVANCE_PHASE') {
+        nextState = transition(nextState);
+        continue;
+      }
 
       const economyEvents = this.turnEconomyStrategy.collectTurnStartEvents(nextState);
       if (economyEvents.length > 0) {
         emittedEvents.push(...economyEvents);
         nextState = appendEvents(reduceEvents(nextState, economyEvents), economyEvents);
       }
-
-      nextState = transition(nextState);
-    } else if (command.type === 'PASS' && state.phase !== 'COMMAND') {
-      nextState = transition(nextState);
     }
 
     return {

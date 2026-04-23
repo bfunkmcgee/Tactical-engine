@@ -61,3 +61,30 @@ test('TurnManager supports unit-turn scheduler variant', () => {
   assert.equal(getActiveActorId(result.state), 'u-b');
   assert.equal(result.state.activeActivationSlot.teamId, 'B');
 });
+
+test('TurnManager builds END_COMMAND flow with turn-start boundary', () => {
+  const flow = manager.getActionPhaseFlow('END_COMMAND', 'COMMAND');
+  assert.deepEqual(
+    flow.map((step) => step.kind),
+    ['ADVANCE_PHASE', 'ADVANCE_PHASE', 'ADVANCE_PHASE', 'TURN_START_BOUNDARY', 'ADVANCE_PHASE'],
+  );
+});
+
+test('TurnManager END_COMMAND flow adapts when phase order changes', () => {
+  const customManager = new TurnManager(new TeamTurnScheduler(), ['START_TURN', 'RESOLUTION', 'COMMAND', 'END_TURN']);
+  const flow = customManager.getActionPhaseFlow('END_COMMAND', 'COMMAND');
+
+  assert.deepEqual(
+    flow.map((step) => step.kind),
+    ['ADVANCE_PHASE', 'ADVANCE_PHASE', 'TURN_START_BOUNDARY', 'ADVANCE_PHASE', 'ADVANCE_PHASE'],
+  );
+
+  let phase: GameState['phase'] = 'COMMAND';
+  for (const step of flow) {
+    if (step.kind === 'ADVANCE_PHASE') {
+      phase = customManager.getNextPhase(phase);
+    }
+  }
+
+  assert.equal(phase, 'COMMAND');
+});

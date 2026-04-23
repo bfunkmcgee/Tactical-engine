@@ -14,6 +14,7 @@ import {
   EntityTurnEconomyStrategyAdapter,
 } from '../../../engine-entities/systems/EngineAdapters';
 import type { ContentIndex, RuleSet } from '../../../rules-sdk/src';
+import { TurnManager } from '../TurnManager';
 
 function setupEntityStore(): EntityStore {
   const store = new EntityStore();
@@ -92,4 +93,45 @@ test('integration: engine + entity systems + rules sdk share one event contract'
   const nextTurn = engine.step(attackResult.state, endCommand);
   assert.equal(getActiveActorId(nextTurn.state), 'B');
   assert.equal(nextTurn.state.phase, 'COMMAND');
+});
+
+test('integration: END_COMMAND uses turn-start boundary from phase policy', () => {
+  const state = {
+    ...createInitialState(
+      ['A', 'B'],
+      [
+        { id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10, actionPoints: 3, maxActionPoints: 4, position: { x: 0, y: 0 } },
+        { id: 'u-b', ownerId: 'B', hp: 8, maxHp: 8, actionPoints: 1, maxActionPoints: 3, position: { x: 1, y: 0 } },
+      ],
+    ),
+    phase: 'COMMAND' as const,
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
+  };
+
+  const observedPhases: string[] = [];
+  const reorderedTurnManager = new TurnManager(undefined, ['START_TURN', 'RESOLUTION', 'COMMAND', 'END_TURN']);
+  const engine = new Engine(
+    undefined,
+    reorderedTurnManager,
+    undefined,
+    undefined,
+    undefined,
+    {
+      collectTurnStartEvents: (phaseState) => {
+        observedPhases.push(phaseState.phase);
+        return [];
+      },
+    },
+  );
+
+  const endCommand: Action = {
+    id: 'end-command:A',
+    actorId: 'A',
+    type: 'END_COMMAND',
+    payload: { reason: 'manual' },
+  };
+
+  const result = engine.step(state, endCommand);
+  assert.equal(result.state.phase, 'COMMAND');
+  assert.deepEqual(observedPhases, ['START_TURN']);
 });
