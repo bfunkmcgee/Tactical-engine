@@ -1,4 +1,4 @@
-import type { TeamId, UnitId } from '../../../engine-core/state/SimulationContract';
+import type { TeamId, UnitId } from 'engine-core';
 
 export type { TeamId, UnitId };
 export type AbilityId = string;

@@ -1,0 +1,8 @@
+{
+  "name": "engine-spatial",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  }
+}

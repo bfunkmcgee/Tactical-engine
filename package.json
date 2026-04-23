@@ -5,7 +5,8 @@
     "check:test-scope": "node scripts/check-test-scope.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.tests.json",
     "build:test-artifacts": "rm -rf .tmp-test-dist && tsc -p tsconfig.tests.json",
-    "test": "npm run build:test-artifacts && node --test $(find .tmp-test-dist/packages .tmp-test-dist/apps -name '*.test.js' | sort)",
-    "ci": "npm run check:test-scope && npm run typecheck && npm run test"
+    "test": "npm run build:test-artifacts && NODE_PATH=.tmp-test-dist/packages node --test $(find .tmp-test-dist/packages .tmp-test-dist/apps -name \"*.test.js\" | sort)",
+    "ci": "npm run check:test-scope && npm run check:imports && npm run typecheck && npm run test",
+    "check:imports": "node scripts/check-no-cross-package-internal-imports.mjs"
   }
 }

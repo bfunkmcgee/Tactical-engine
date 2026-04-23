@@ -4,7 +4,7 @@ import {
   type GameState,
   type Action,
   getActiveActorId,
-} from '../../../../../packages/engine-core/state/GameState';
+} from 'engine-core';
 import { createExampleScenarioRuntime } from '../../../../../games/example-skirmish/scenario/runtime';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
 

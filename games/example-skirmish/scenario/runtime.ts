@@ -1,8 +1,12 @@
-import { createInitialState, type GameState, type UnitState } from '../../../packages/engine-core/state/GameState';
-import { ActionResolver } from '../../../packages/engine-core/simulation/ActionResolver';
-import { Engine } from '../../../packages/engine-core/simulation/Engine';
-import { RulesetLegalActionGenerator } from '../../../packages/engine-core/simulation/LegalActionGenerator';
-import { RulesSdkActionAdapter } from '../../../packages/engine-core/simulation/RuleAdapter';
+import {
+  ActionResolver,
+  createInitialState,
+  Engine,
+  RulesetLegalActionGenerator,
+  RulesSdkActionAdapter,
+  type GameState,
+  type UnitState,
+} from 'engine-core';
 import { ExampleRuleSet, exampleContent } from '../rules/ExampleRuleSet';
 
 const EXAMPLE_MAP_ID = 'example_arena';

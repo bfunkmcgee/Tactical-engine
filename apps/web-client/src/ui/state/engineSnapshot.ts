@@ -1,5 +1,5 @@
-import type { Action, GameEvent, GameState } from '../../../../../packages/engine-core/state/GameState';
-import { getActiveActorId } from '../../../../../packages/engine-core/state/GameState';
+import type { Action, GameEvent, GameState } from 'engine-core';
+import { getActiveActorId } from 'engine-core';
 
 export type Entity = {
   id: string;
