@@ -398,6 +398,29 @@ export class ActionResolver {
         details: { actorId: action.actorId, sourceUnitId: normalized.unitId, actionType: action.type },
       };
     }
+    const sourcePosition = sourceUnit.position;
+    if (!sourcePosition) {
+      return {
+        isValid: false,
+        reason: 'MISSING_SOURCE_POSITION',
+        details: { actorId: action.actorId, sourceUnitId: normalized.unitId, actionType: action.type },
+      };
+    }
+
+    if (sourcePosition.x === normalized.to.x && sourcePosition.y === normalized.to.y) {
+      return { isValid: false, reason: 'MOVE_DESTINATION_UNCHANGED' };
+    }
+
+    const occupiedByAliveUnit = Object.values(state.units).some(
+      (candidate) =>
+        candidate.id !== sourceUnit.id &&
+        candidate.hp > 0 &&
+        candidate.position?.x === normalized.to.x &&
+        candidate.position?.y === normalized.to.y,
+    );
+    if (occupiedByAliveUnit) {
+      return { isValid: false, reason: 'MOVE_DESTINATION_OCCUPIED' };
+    }
 
     if (legalActions.length === 0) {
       return { isValid: false, reason: 'MOVE_NOT_LEGAL_IN_PHASE' };
@@ -779,16 +802,18 @@ export class ActionResolver {
       round: context.state.round,
     });
 
-    for (const statusId of ruleResolution?.appliedStatusEffectIds ?? []) {
-      context.events.push({
-        kind: 'STATUS_APPLIED',
-        sourceUnitId: actorUnit.id,
-        targetId: targetUnit.id,
-        statusId,
-        duration: 1,
-        turn: context.state.turn,
-        round: context.state.round,
-      });
+    for (const application of ruleResolution?.appliedStatusApplications ?? []) {
+      for (let stackIndex = 0; stackIndex < application.stacks; stackIndex += 1) {
+        context.events.push({
+          kind: 'STATUS_APPLIED',
+          sourceUnitId: actorUnit.id,
+          targetId: targetUnit.id,
+          statusId: application.statusId,
+          duration: application.duration,
+          turn: context.state.turn,
+          round: context.state.round,
+        });
+      }
     }
 
     if ((ruleResolution?.appliedCooldownTurns ?? 0) > 0 && ruleResolution?.abilityId) {

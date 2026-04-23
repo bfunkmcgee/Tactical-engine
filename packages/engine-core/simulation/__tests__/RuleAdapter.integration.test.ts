@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { createExampleScenarioRuntime } from '../../../../games/example-skirmish/scenario/runtime';
+import { exampleContent } from '../../../../games/example-skirmish/rules/ExampleRuleSet';
+import { toRuleEvaluationState } from '../../state/GameState';
 
 test('example scenario runtime bridges rules-sdk legal actions into engine-core', () => {
   const runtime = createExampleScenarioRuntime();
@@ -100,6 +102,66 @@ test('ExampleRuleSet toEngineEvents forwards turn and round from hook events', (
   assert.equal(defeated[0]?.round, 3);
 });
 
+test('ExampleRuleSet canMove rejects moving into ally-occupied tile', () => {
+  const runtime = createExampleScenarioRuntime();
+  const state = runtime.createInitialState();
+  const battleState = toRuleEvaluationState(state, runtime.mapId);
+
+  const canMove = runtime.ruleSet.canMove(battleState, 'alliance-1', { x: 2, y: 1 }, exampleContent);
+  assert.equal(canMove, false);
+});
+
+test('ExampleRuleSet canMove rejects moving into enemy-occupied tile', () => {
+  const runtime = createExampleScenarioRuntime();
+  const initial = runtime.createInitialState();
+  const state = {
+    ...initial,
+    units: {
+      ...initial.units,
+      'raider-1': {
+        ...initial.units['raider-1']!,
+        position: { x: 2, y: 1 },
+      },
+      'alliance-2': {
+        ...initial.units['alliance-2']!,
+        hp: 0,
+      },
+    },
+  };
+  const battleState = toRuleEvaluationState(state, runtime.mapId);
+
+  const canMove = runtime.ruleSet.canMove(battleState, 'alliance-1', { x: 2, y: 1 }, exampleContent);
+  assert.equal(canMove, false);
+});
+
+test('ExampleRuleSet canMove allows moving into empty tile when constraints pass', () => {
+  const runtime = createExampleScenarioRuntime();
+  const initial = runtime.createInitialState();
+  const state = {
+    ...initial,
+    units: {
+      ...initial.units,
+      'alliance-2': {
+        ...initial.units['alliance-2']!,
+        hp: 0,
+      },
+    },
+  };
+  const battleState = toRuleEvaluationState(state, runtime.mapId);
+
+  const canMove = runtime.ruleSet.canMove(battleState, 'alliance-1', { x: 2, y: 1 }, exampleContent);
+  assert.equal(canMove, true);
+});
+
+test('ExampleRuleSet canMove rejects no-op self movement explicitly', () => {
+  const runtime = createExampleScenarioRuntime();
+  const state = runtime.createInitialState();
+  const battleState = toRuleEvaluationState(state, runtime.mapId);
+
+  const canMove = runtime.ruleSet.canMove(battleState, 'alliance-1', { x: 1, y: 1 }, exampleContent);
+  assert.equal(canMove, false);
+});
+
 test('engine emits MATCH_ENDED and stores terminal outcome after victory', () => {
   const runtime = createExampleScenarioRuntime();
   const initial = runtime.createInitialState();
@@ -150,4 +212,60 @@ test('engine emits MATCH_ENDED and stores terminal outcome after victory', () =>
   const followUp = runtime.engine.step(result.state, attack);
   assert.equal(followUp.events.length, 0);
   assert.equal(followUp.state, result.state);
+});
+
+test('suppressing_fire applies dot with canonical status id and ticks for expected duration', () => {
+  const runtime = createExampleScenarioRuntime();
+  const initial = runtime.createInitialState();
+  const seeded = {
+    ...initial,
+    turn: 1,
+    units: {
+      ...initial.units,
+      'alliance-2': {
+        ...initial.units['alliance-2']!,
+        position: { x: 2, y: 1 },
+      },
+      'alliance-1': {
+        ...initial.units['alliance-1']!,
+        hp: 100,
+      },
+      'raider-1': {
+        ...initial.units['raider-1']!,
+        hp: 120,
+        position: { x: 4, y: 1 },
+      },
+    },
+  };
+
+  const battleState = toRuleEvaluationState(seeded, runtime.mapId);
+  const resolution = runtime.ruleSet.resolveDamage(battleState, 'alliance-2', 'raider-1', 'suppressing_fire', exampleContent);
+
+  assert.deepEqual(resolution.appliedStatusApplications, [{ statusId: 'dot:4', durationTurns: 2, stacks: 1 }]);
+
+  const withDot = {
+    ...battleState,
+    units: battleState.units.map((unit) =>
+      unit.id === 'raider-1'
+        ? {
+            ...unit,
+            activeEffects: resolution.appliedStatusApplications?.map((application) => ({
+              effectId: application.statusId,
+              duration: application.durationTurns,
+              stacks: application.stacks,
+            })),
+          }
+        : unit,
+    ),
+  };
+
+  const firstTick = runtime.ruleSet.applyStatusEffects(withDot, exampleContent);
+  const firstTickTarget = firstTick.units.find((unit) => unit.id === 'raider-1');
+  assert.equal(firstTickTarget?.health, 116);
+  assert.deepEqual(firstTickTarget?.activeEffects, [{ effectId: 'dot:4', duration: 1, stacks: 1 }]);
+
+  const secondTick = runtime.ruleSet.applyStatusEffects(firstTick, exampleContent);
+  const secondTickTarget = secondTick.units.find((unit) => unit.id === 'raider-1');
+  assert.equal(secondTickTarget?.health, 112);
+  assert.equal(secondTickTarget?.activeEffects, undefined);
 });

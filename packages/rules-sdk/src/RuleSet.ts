@@ -4,10 +4,16 @@ import type { RuleHooks } from './hooks';
 
 export type BattleState = RuleEvaluationState;
 
+export interface ResolvedStatusApplication {
+  statusId: string;
+  durationTurns: number;
+  stacks?: number;
+}
+
 export interface DamageResolution {
   amount: number;
   defeated: boolean;
-  appliedStatusEffectIds?: string[];
+  appliedStatusApplications?: ResolvedStatusApplication[];
   appliedCooldownTurns?: number;
 }
 

@@ -15,6 +15,7 @@ import {
   createContentIndex,
   DamageResolution,
   Position,
+  ResolvedStatusApplication,
   RuleSet,
   UnitId,
   VictoryResult,
@@ -77,12 +78,25 @@ export class ExampleRuleSet implements RuleSet {
   canMove(state: BattleState, unitId: UnitId, to: Position, content: ContentIndex): boolean {
     const unit = state.units.find((candidate) => candidate.id === unitId);
     if (!unit?.position || !unit.definitionId) return false;
+    if (unit.health <= 0) return false;
+
+    if (unit.position.x === to.x && unit.position.y === to.y) {
+      return false;
+    }
 
     const definition = content.units[unit.definitionId];
     if (!definition) return false;
 
     const map = content.maps[state.mapId];
     if (!map || to.x < 0 || to.x >= map.width || to.y < 0 || to.y >= map.height) return false;
+
+    const isOccupied = state.units.some(
+      (candidate) =>
+        candidate.health > 0 &&
+        candidate.position?.x === to.x &&
+        candidate.position?.y === to.y,
+    );
+    if (isOccupied) return false;
 
     const destinationTile = this.getTileAtPosition(to, state, content);
     const distance = manhattanDistance(unit.position, to);
@@ -154,7 +168,7 @@ export class ExampleRuleSet implements RuleSet {
     return {
       amount,
       defeated,
-      appliedStatusEffectIds: this.rollStatusApplications(state, source.id, target.id, ability),
+      appliedStatusApplications: this.rollStatusApplications(state, source.id, target.id, ability),
       appliedCooldownTurns: ability.cooldownTurns,
     };
   }
@@ -351,11 +365,11 @@ export class ExampleRuleSet implements RuleSet {
     sourceUnitId: string,
     targetUnitId: string,
     ability: AbilityDefinition,
-  ): string[] {
+  ): ResolvedStatusApplication[] {
     const applications = ability.statusApplications ?? [];
     return applications.flatMap((application) => {
       const chance = application.chance ?? 1;
-      const turns = Math.max(1, application.durationTurns ?? 1);
+      const durationTurns = Math.max(1, application.durationTurns ?? 1);
       const stacks = Math.max(1, application.stacks ?? 1);
       const didProc = deterministicProc(state.turn, sourceUnitId, targetUnitId, `${ability.id}:${application.statusId}`, chance);
 
@@ -363,7 +377,13 @@ export class ExampleRuleSet implements RuleSet {
         return [];
       }
 
-      return Array.from({ length: stacks }, () => `${application.statusId}:${turns}`);
+      return [
+        {
+          statusId: application.statusId,
+          durationTurns,
+          stacks,
+        },
+      ];
     });
   }
 
