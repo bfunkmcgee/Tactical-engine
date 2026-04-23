@@ -1,0 +1,9 @@
+[
+  {
+    "id": "broken_map",
+    "name": "Broken Map",
+    "width": 2,
+    "height": 2,
+    "tiles": ["plains", "forest", "unknown_tile"]
+  }
+]

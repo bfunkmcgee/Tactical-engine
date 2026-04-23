@@ -13,6 +13,7 @@ import {
   TileDefinition,
   UnitDefinition,
   createContentIndex,
+  validateContentPack,
   DamageResolution,
   Position,
   ResolvedStatusApplication,
@@ -32,6 +33,8 @@ const examplePack: ContentPack = {
   maps: maps as ContentPack['maps'],
   factions: factions as FactionDefinition[],
 };
+
+validateContentPack(examplePack, 'games/example-skirmish/content/*.json');
 
 export const exampleContent = createContentIndex(examplePack);
 
