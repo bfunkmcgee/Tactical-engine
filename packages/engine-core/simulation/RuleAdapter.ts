@@ -1,5 +1,11 @@
-import type { ContentIndex, DamageResolution, RuleSet, VictoryResult } from '../../rules-sdk/src';
+import type { ContentIndex, DamageResolution, ResolvedStatusApplication, RuleSet, VictoryResult } from '../../rules-sdk/src';
 import { toRuleEvaluationState, type Action, type GameState, type UnitState } from '../state/GameState';
+
+export interface RuleStatusApplication {
+  readonly statusId: string;
+  readonly duration: number;
+  readonly stacks: number;
+}
 
 export interface RuleAttackResolution {
   readonly amount: number;
@@ -7,7 +13,7 @@ export interface RuleAttackResolution {
   readonly abilityId?: string;
   readonly sourceUnitId: string;
   readonly targetUnitId: string;
-  readonly appliedStatusEffectIds: readonly string[];
+  readonly appliedStatusApplications: readonly RuleStatusApplication[];
   readonly appliedCooldownTurns?: number;
 }
 
@@ -93,9 +99,17 @@ export class RulesSdkActionAdapter implements RuleActionAdapter {
       abilityId,
       sourceUnitId,
       targetUnitId,
-      appliedStatusEffectIds: resolution.appliedStatusEffectIds ?? [],
+      appliedStatusApplications: this.toRuleStatusApplications(resolution.appliedStatusApplications),
       appliedCooldownTurns: resolution.appliedCooldownTurns,
     };
+  }
+
+  private toRuleStatusApplications(applications: readonly ResolvedStatusApplication[] | undefined): RuleStatusApplication[] {
+    return (applications ?? []).map((application) => ({
+      statusId: application.statusId,
+      duration: Math.max(1, application.durationTurns ?? 1),
+      stacks: Math.max(1, application.stacks ?? 1),
+    }));
   }
 }
 
