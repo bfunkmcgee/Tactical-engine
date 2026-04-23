@@ -53,3 +53,30 @@ test('projectEngineSnapshot applies mapped team colors and deterministic fallbac
   assert.equal(allianceEntity?.color, '#445566');
   assert.equal(raiderEntity?.color, getDeterministicTeamColor('raiders'));
 });
+
+test('projectEngineSnapshot exposes ACTION_REJECTED feedback details', () => {
+  const state = createState();
+  const snapshot = projectEngineSnapshot({
+    state,
+    events: [
+      {
+        kind: 'ACTION_REJECTED',
+        actorId: 'alliance',
+        actionType: 'MOVE',
+        reason: 'MOVE_BLOCKED',
+        details: { tile: '1,0', occupied: true },
+        turn: 1,
+        round: 1,
+      },
+    ],
+    selection: undefined,
+    tick: 8,
+    view: { zoom: 1, offsetX: 0, offsetY: 0 },
+    getLegalActions: () => [],
+  });
+
+  assert.equal(
+    snapshot.feedback[0],
+    'Action rejected (MOVE) for alliance: MOVE_BLOCKED (tile: 1,0, occupied: true)',
+  );
+});

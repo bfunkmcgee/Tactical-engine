@@ -267,3 +267,20 @@ test('reduceState sets hp to zero when UNIT_DEFEATED is received', () => {
 
   assert.equal(next.units['u-b']?.hp, 0);
 });
+
+test('reduceEvents accepts ACTION_REJECTED and preserves state fields', () => {
+  const state = createInitialState(['A', 'B'], [{ id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10 }]);
+  const next = reduceEvents(state, [
+    {
+      kind: 'ACTION_REJECTED',
+      actorId: 'A',
+      actionType: 'MOVE',
+      reason: 'MOVE_BLOCKED',
+      details: { blockedBy: 'u-a' },
+      turn: 1,
+      round: 1,
+    },
+  ]);
+
+  assert.equal(next, state);
+});

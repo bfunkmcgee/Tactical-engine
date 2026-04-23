@@ -201,3 +201,38 @@ test('integration: PASS returns events in exact reduction order for phase flow',
   const result = engine.step(state, pass);
   assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED', 'PHASE_ADVANCED', 'TURN_STARTED']);
 });
+
+test('integration: Engine.step surfaces ACTION_REJECTED for invalid actions', () => {
+  const state = {
+    ...createInitialState(
+      ['A', 'B'],
+      [
+        { id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10, position: { x: 0, y: 0 } },
+        { id: 'u-b', ownerId: 'B', hp: 10, maxHp: 10, position: { x: 1, y: 0 } },
+      ],
+    ),
+    phase: 'COMMAND' as const,
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
+  };
+
+  const engine = new Engine();
+  const invalidAttack: Action = {
+    id: 'attack:A:u-b',
+    actorId: 'A',
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: -1 },
+  };
+
+  const result = engine.step(state, invalidAttack);
+  assert.equal(result.events.length, 1);
+  assert.deepEqual(result.events[0], {
+    kind: 'ACTION_REJECTED',
+    actorId: 'A',
+    actionType: 'ATTACK',
+    reason: 'ATTACK_AMOUNT_INVALID',
+    details: { amount: '-1' },
+    turn: 1,
+    round: 1,
+  });
+  assert.equal(result.state.eventLog.at(-1)?.kind, 'ACTION_REJECTED');
+});
