@@ -150,6 +150,88 @@ test('reduceState keeps same effect from different sources and refreshes matchin
   ]);
 });
 
+test('reduceState ticks status duration without increasing stacks', () => {
+  const state = createInitialState(['A', 'B'], [
+    {
+      id: 'u-a',
+      ownerId: 'A',
+      hp: 10,
+      maxHp: 10,
+      activeEffects: [{ effectId: 'burn', sourceUnitId: 'u-b', duration: 3, stacks: 2 }],
+    },
+  ]);
+
+  const next = reduceState(state, {
+    kind: 'STATUS_TICKED',
+    sourceUnitId: 'u-b',
+    targetId: 'u-a',
+    statusId: 'burn',
+    duration: 2,
+    turn: 2,
+    round: 1,
+  });
+
+  assert.deepEqual(next.units['u-a']?.activeEffects, [{ effectId: 'burn', sourceUnitId: 'u-b', duration: 2, stacks: 2 }]);
+});
+
+test('reduceState removes expired status effect', () => {
+  const state = createInitialState(['A', 'B'], [
+    {
+      id: 'u-a',
+      ownerId: 'A',
+      hp: 10,
+      maxHp: 10,
+      activeEffects: [
+        { effectId: 'burn', sourceUnitId: 'u-b', duration: 1, stacks: 2 },
+        { effectId: 'regen', duration: 2, stacks: 1 },
+      ],
+    },
+  ]);
+
+  const next = reduceState(state, {
+    kind: 'STATUS_REMOVED',
+    sourceUnitId: 'u-b',
+    targetId: 'u-a',
+    statusId: 'burn',
+    turn: 2,
+    round: 1,
+  });
+
+  assert.deepEqual(next.units['u-a']?.activeEffects, [{ effectId: 'regen', duration: 2, stacks: 1 }]);
+});
+
+test('reduceEvents applies status decay lifecycle across multiple turns', () => {
+  const state = createInitialState(['A', 'B'], [
+    {
+      id: 'u-a',
+      ownerId: 'A',
+      hp: 10,
+      maxHp: 10,
+      activeEffects: [{ effectId: 'burn', duration: 2, stacks: 1 }],
+    },
+  ]);
+
+  const next = reduceEvents(state, [
+    {
+      kind: 'STATUS_TICKED',
+      targetId: 'u-a',
+      statusId: 'burn',
+      duration: 1,
+      turn: 1,
+      round: 1,
+    },
+    {
+      kind: 'STATUS_REMOVED',
+      targetId: 'u-a',
+      statusId: 'burn',
+      turn: 2,
+      round: 1,
+    },
+  ]);
+
+  assert.deepEqual(next.units['u-a']?.activeEffects, []);
+});
+
 test('migrateLegacyStatusEffectIdsState converts string status entries into active effects', () => {
   const state = createInitialState(['A', 'B'], [{ id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10 }]) as ReturnType<
     typeof createInitialState

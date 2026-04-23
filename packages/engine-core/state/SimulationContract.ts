@@ -188,6 +188,23 @@ export type SimulationEvent =
       readonly round: number;
     }
   | {
+      readonly kind: 'STATUS_TICKED';
+      readonly sourceUnitId?: UnitId;
+      readonly targetId: UnitId;
+      readonly statusId: string;
+      readonly duration: number;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
+      readonly kind: 'STATUS_REMOVED';
+      readonly sourceUnitId?: UnitId;
+      readonly targetId: UnitId;
+      readonly statusId: string;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
       readonly kind: 'ACTION_POINTS_CHANGED';
       readonly unitId: UnitId;
       readonly from: number;

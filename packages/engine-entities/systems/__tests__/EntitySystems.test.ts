@@ -104,6 +104,55 @@ test('StatusSystem stack/refresh/replace policies are deterministic', () => {
   assert.equal(statsAfterTick?.hp, 8);
 });
 
+test('StatusSystem collectTickEvents emits tick and removal events without re-applying status', () => {
+  const store = setupBasicStore();
+  const status = new StatusSystem();
+
+  status.applyEffect(store, 'p1', poison(1, 'stack', 1));
+  status.applyEffect(store, 'p1', { ...poison(2, 'replace', 1), remainingTurns: 2, durationTurns: 2 });
+
+  const turnOneEvents = status.collectTickEvents(store, 'p1', 1, 1);
+  assert.deepEqual(turnOneEvents, [
+    {
+      kind: 'UNIT_DAMAGED',
+      sourceId: 'status',
+      targetId: 'p1',
+      amount: 2,
+      turn: 1,
+      round: 1,
+    },
+    {
+      kind: 'STATUS_TICKED',
+      targetId: 'p1',
+      statusId: 'poison',
+      duration: 1,
+      turn: 1,
+      round: 1,
+    },
+  ]);
+  assert.equal(turnOneEvents.some((event) => event.kind === 'STATUS_APPLIED'), false);
+
+  status.tick(store, 'p1');
+  const turnTwoEvents = status.collectTickEvents(store, 'p1', 2, 1);
+  assert.deepEqual(turnTwoEvents, [
+    {
+      kind: 'UNIT_DAMAGED',
+      sourceId: 'status',
+      targetId: 'p1',
+      amount: 2,
+      turn: 2,
+      round: 1,
+    },
+    {
+      kind: 'STATUS_REMOVED',
+      targetId: 'p1',
+      statusId: 'poison',
+      turn: 2,
+      round: 1,
+    },
+  ]);
+});
+
 test('TurnEconomySystem: cooldown decrement and stable turn ordering', () => {
   const store = setupBasicStore();
   const turnEconomy = new TurnEconomySystem();

@@ -137,11 +137,19 @@ export class StatusSystem {
     for (const previous of effectsComponent.effects) {
       const next = decayed.find((candidate) => candidate.effectId === previous.effectId);
       if (!next) {
+        events.push({
+          kind: 'STATUS_REMOVED',
+          targetId: entityId,
+          statusId: previous.effectId,
+          turn,
+          round,
+        });
         continue;
       }
+
       if (previous.remainingTurns !== next.remainingTurns) {
         events.push({
-          kind: 'STATUS_APPLIED',
+          kind: 'STATUS_TICKED',
           targetId: entityId,
           statusId: next.effectId,
           duration: next.remainingTurns,
