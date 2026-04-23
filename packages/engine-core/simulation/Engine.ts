@@ -25,6 +25,18 @@ const NOOP_TURN_START_STRATEGY: TurnStartStrategy = {
   collectTurnStartEvents: () => [],
 };
 
+export interface EngineOptions {
+  readonly actionResolver?: ActionResolver;
+  readonly turnManager?: TurnManager;
+  readonly movementStrategy?: SimulationStrategy;
+  readonly combatStrategy?: SimulationStrategy;
+  readonly statusStrategy?: SimulationStrategy;
+  readonly turnEconomyStrategy?: TurnStartStrategy;
+  readonly spatialStrategy?: SimulationStrategy;
+  readonly legalActionGenerator?: LegalActionGenerator;
+  readonly matchOutcomeEvaluator?: MatchOutcomeEvaluator;
+}
+
 export class Engine {
   private readonly actionResolver: ActionResolver;
   private readonly turnManager: TurnManager;
@@ -35,8 +47,20 @@ export class Engine {
   private readonly turnEconomyStrategy: TurnStartStrategy;
   private readonly matchOutcomeEvaluator?: MatchOutcomeEvaluator;
 
+  constructor(options?: EngineOptions);
   constructor(
-    actionResolver: ActionResolver | undefined = undefined,
+    actionResolver?: ActionResolver,
+    turnManager?: TurnManager,
+    movementStrategy?: SimulationStrategy,
+    combatStrategy?: SimulationStrategy,
+    statusStrategy?: SimulationStrategy,
+    turnEconomyStrategy?: TurnStartStrategy,
+    spatialStrategy?: SimulationStrategy,
+    legalActionGenerator?: LegalActionGenerator,
+    matchOutcomeEvaluator?: MatchOutcomeEvaluator,
+  );
+  constructor(
+    actionResolverOrOptions: ActionResolver | EngineOptions | undefined = undefined,
     turnManager = new TurnManager(),
     movementStrategy: SimulationStrategy = NOOP_STRATEGY,
     combatStrategy: SimulationStrategy = NOOP_STRATEGY,
@@ -46,14 +70,29 @@ export class Engine {
     legalActionGenerator?: LegalActionGenerator,
     matchOutcomeEvaluator?: MatchOutcomeEvaluator,
   ) {
-    this.actionResolver = actionResolver ?? new ActionResolver(legalActionGenerator);
-    this.turnManager = turnManager;
-    this.movementStrategy = movementStrategy;
-    this.combatStrategy = combatStrategy;
-    this.statusStrategy = statusStrategy;
-    this.turnEconomyStrategy = turnEconomyStrategy;
-    this.spatialStrategy = spatialStrategy;
-    this.matchOutcomeEvaluator = matchOutcomeEvaluator;
+    const normalizedOptions =
+      actionResolverOrOptions === undefined || actionResolverOrOptions instanceof ActionResolver
+        ? {
+            actionResolver: actionResolverOrOptions,
+            turnManager,
+            movementStrategy,
+            combatStrategy,
+            statusStrategy,
+            turnEconomyStrategy,
+            spatialStrategy,
+            legalActionGenerator,
+            matchOutcomeEvaluator,
+          }
+        : actionResolverOrOptions;
+
+    this.actionResolver = normalizedOptions.actionResolver ?? new ActionResolver(normalizedOptions.legalActionGenerator);
+    this.turnManager = normalizedOptions.turnManager ?? new TurnManager();
+    this.movementStrategy = normalizedOptions.movementStrategy ?? NOOP_STRATEGY;
+    this.combatStrategy = normalizedOptions.combatStrategy ?? NOOP_STRATEGY;
+    this.statusStrategy = normalizedOptions.statusStrategy ?? NOOP_STRATEGY;
+    this.turnEconomyStrategy = normalizedOptions.turnEconomyStrategy ?? NOOP_TURN_START_STRATEGY;
+    this.spatialStrategy = normalizedOptions.spatialStrategy ?? NOOP_STRATEGY;
+    this.matchOutcomeEvaluator = normalizedOptions.matchOutcomeEvaluator;
   }
 
   public applyAction(state: GameState, action: Action): StateTransitionResult {

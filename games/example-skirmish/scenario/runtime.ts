@@ -114,7 +114,10 @@ export function createExampleScenarioRuntime(): ExampleScenarioRuntime {
       mapId: EXAMPLE_MAP_ID,
       players: [...EXAMPLE_PLAYERS],
       units: [...EXAMPLE_UNITS],
-      engine: new Engine(actionResolver, undefined, undefined, undefined, undefined, undefined, undefined, undefined, matchOutcomeEvaluator),
+      engine: new Engine({
+        actionResolver,
+        matchOutcomeEvaluator,
+      }),
       createInitialState: () => createInitialState(EXAMPLE_PLAYERS, EXAMPLE_UNITS),
     }),
     ruleSet,
