@@ -1,12 +1,46 @@
-import { readFileSync } from 'node:fs';
-import { globSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 
-const SOURCE_FILES = ['apps/**/*.ts', 'apps/**/*.tsx', 'games/**/*.ts', 'packages/**/*.ts', 'packages/**/*.tsx'];
+const SOURCE_ROOTS = [
+  { root: 'apps', extensions: new Set(['.ts', '.tsx']) },
+  { root: 'games', extensions: new Set(['.ts']) },
+  { root: 'packages', extensions: new Set(['.ts', '.tsx']) }
+];
+const IGNORED_DIR_NAMES = new Set(['node_modules', '.tmp-test-dist', '__tests__']);
 const IMPORT_PATTERN = /from\s+['\"]([^'\"]+)['\"]/g;
 const VIOLATIONS = [];
 
-for (const pattern of SOURCE_FILES) {
-  for (const filePath of globSync(pattern, { exclude: ['**/node_modules/**', '**/.tmp-test-dist/**', '**/__tests__/**'] })) {
+function collectSourceFiles(rootDir, extensions) {
+  const files = [];
+
+  function walk(currentDir) {
+    for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (IGNORED_DIR_NAMES.has(entry.name)) {
+          continue;
+        }
+
+        walk(path.join(currentDir, entry.name));
+        continue;
+      }
+
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const extension = path.extname(entry.name);
+      if (extensions.has(extension)) {
+        files.push(path.join(currentDir, entry.name));
+      }
+    }
+  }
+
+  walk(rootDir);
+  return files;
+}
+
+for (const { root, extensions } of SOURCE_ROOTS) {
+  for (const filePath of collectSourceFiles(root, extensions)) {
     const source = readFileSync(filePath, 'utf8');
     let match;
     while ((match = IMPORT_PATTERN.exec(source)) !== null) {
