@@ -27,6 +27,13 @@ test('check:imports rejects cross-package internal deep imports', () => {
   assert.match(result.output, /bad-imports\.ts/u);
 });
 
+
+test('check:imports rejects cross-package deep imports without explicit packages segment', () => {
+  const result = runImportBoundaryCheck('packages/engine-core/simulation/fixtures/bad-import-no-packages-segment.ts');
+  assert.equal(result.success, false, 'expected checker to fail for sibling-package deep relative import fixture');
+  assert.match(result.output, /bad-import-no-packages-segment\.ts/u);
+});
+
 test('check:imports accepts package-level imports', () => {
   const result = runImportBoundaryCheck('scripts/fixtures/cross-package-imports/good-imports.ts');
   assert.equal(result.success, true, 'expected checker to pass for package-level import fixture');
