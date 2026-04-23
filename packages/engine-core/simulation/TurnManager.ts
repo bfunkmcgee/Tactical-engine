@@ -6,9 +6,27 @@ import {
   type GameState,
   type StateTransitionResult,
 } from '../state/GameState';
-import type { ActivationSlot, Phase, SchedulerStateSnapshot, TurnScheduler } from '../state/SimulationContract';
+import type { ActionType, ActivationSlot, Phase, SchedulerStateSnapshot, TurnScheduler } from '../state/SimulationContract';
 
-const PHASE_ORDER: readonly Phase[] = ['START_TURN', 'COMMAND', 'RESOLUTION', 'END_TURN'];
+const DEFAULT_PHASE_ORDER: readonly Phase[] = ['START_TURN', 'COMMAND', 'RESOLUTION', 'END_TURN'];
+
+export type PhaseFlowStep = { readonly kind: 'ADVANCE_PHASE' } | { readonly kind: 'TURN_START_BOUNDARY' };
+
+interface ActionPhasePolicy {
+  readonly targetPhase: Phase;
+  readonly boundaryPhase?: Phase;
+}
+
+const ACTION_PHASE_POLICIES: Readonly<Partial<Record<ActionType, Partial<Record<Phase, ActionPhasePolicy>>>>> = {
+  END_COMMAND: {
+    COMMAND: { targetPhase: 'COMMAND', boundaryPhase: 'START_TURN' },
+  },
+  PASS: {
+    START_TURN: { targetPhase: 'COMMAND' },
+    RESOLUTION: { targetPhase: 'END_TURN' },
+    END_TURN: { targetPhase: 'START_TURN' },
+  },
+};
 
 export class TeamTurnScheduler implements TurnScheduler {
   public getInitialSlot(state: { readonly players: readonly string[] }): ActivationSlot {
@@ -75,7 +93,10 @@ export class UnitTurnScheduler implements TurnScheduler {
 }
 
 export class TurnManager {
-  public constructor(private readonly scheduler: TurnScheduler = new TeamTurnScheduler()) {}
+  public constructor(
+    private readonly scheduler: TurnScheduler = new TeamTurnScheduler(),
+    private readonly phaseOrder: readonly Phase[] = DEFAULT_PHASE_ORDER,
+  ) {}
 
   public advancePhase(state: GameState): GameState {
     return this.advancePhaseWithEvents(state).state;
@@ -142,12 +163,39 @@ export class TurnManager {
   }
 
   public getNextPhase(current: Phase): Phase {
-    const index = PHASE_ORDER.indexOf(current);
+    const index = this.phaseOrder.indexOf(current);
     if (index === -1) {
       return 'START_TURN';
     }
 
-    return PHASE_ORDER[(index + 1) % PHASE_ORDER.length] ?? 'START_TURN';
+    return this.phaseOrder[(index + 1) % this.phaseOrder.length] ?? 'START_TURN';
+  }
+
+  public getActionPhaseFlow(actionType: ActionType, currentPhase: Phase): readonly PhaseFlowStep[] {
+    const policy = ACTION_PHASE_POLICIES[actionType]?.[currentPhase];
+    if (!policy) {
+      return [];
+    }
+
+    const steps: PhaseFlowStep[] = [];
+    let phase = currentPhase;
+    let guard = this.phaseOrder.length + 1;
+
+    while (guard > 0) {
+      guard -= 1;
+      phase = this.getNextPhase(phase);
+      steps.push({ kind: 'ADVANCE_PHASE' });
+
+      if (policy.boundaryPhase && phase === policy.boundaryPhase) {
+        steps.push({ kind: 'TURN_START_BOUNDARY' });
+      }
+
+      if (phase === policy.targetPhase) {
+        break;
+      }
+    }
+
+    return steps;
   }
 
   private ensureActiveSlot(state: GameState, events: GameEvent[]): GameState {
