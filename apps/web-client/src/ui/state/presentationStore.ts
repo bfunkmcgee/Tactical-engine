@@ -5,24 +5,34 @@ import {
   type Action,
   getActiveActorId,
 } from 'engine-core';
-import { createExampleScenarioRuntime } from '../../../../../games/example-skirmish/scenario/runtime';
+import {
+  EXAMPLE_SCENARIO_ID,
+  createDefaultScenarioRuntimeRegistry,
+  type ScenarioRuntime,
+  type ScenarioRuntimeRegistry,
+} from 'rules-sdk';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
 import { isSameAction } from './actionIdentity';
 
 export type { EngineSnapshot, Entity, ViewState, EngineActionView } from './engineSnapshot';
 
-const scenarioRuntime = createExampleScenarioRuntime();
-const engine = scenarioRuntime.engine;
+export const DEFAULT_SCENARIO_ID = EXAMPLE_SCENARIO_ID;
 
-type ScenarioTeamColorsRuntime = {
-  readonly teamColors?: Readonly<Record<string, string>>;
-};
-
-const runtimeTeamColors = (scenarioRuntime as ScenarioTeamColorsRuntime).teamColors;
 const INITIAL_VIEW: ViewState = { zoom: 1, offsetX: 0, offsetY: 0 };
 
-function createInitialEngineState(): GameState {
-  return engine.advancePhase(scenarioRuntime.createInitialState());
+export type PresentationStoreScenarioAdapter = {
+  readonly scenarioRuntime: ScenarioRuntime;
+};
+
+export function createPresentationStoreScenarioAdapter(options?: {
+  readonly scenarioId?: string;
+  readonly registry?: ScenarioRuntimeRegistry;
+}): PresentationStoreScenarioAdapter {
+  const scenarioId = options?.scenarioId ?? DEFAULT_SCENARIO_ID;
+  const registry = options?.registry ?? createDefaultScenarioRuntimeRegistry();
+  return {
+    scenarioRuntime: registry.create(scenarioId),
+  };
 }
 
 type StoreState = {
@@ -33,28 +43,34 @@ type StoreState = {
   recentEvents: readonly GameEvent[];
 };
 
-function toSnapshot(store: StoreState): EngineSnapshot {
+function createInitialEngineState(runtime: ScenarioRuntime): GameState {
+  return runtime.engine.advancePhase(runtime.createInitialState());
+}
+
+function toSnapshot(store: StoreState, runtime: ScenarioRuntime): EngineSnapshot {
   return projectEngineSnapshot({
     state: store.state,
     events: store.recentEvents,
     selection: store.selection,
     tick: store.tick,
     view: store.view,
-    getLegalActions: engine.getLegalActions.bind(engine),
-    teamColors: runtimeTeamColors,
+    getLegalActions: runtime.engine.getLegalActions.bind(runtime.engine),
+    teamColors: runtime.metadata.teamColors,
   });
 }
 
 export function usePresentationStore() {
+  const { scenarioRuntime } = useMemo(() => createPresentationStoreScenarioAdapter(), []);
+
   const [store, setStore] = useState<StoreState>({
     tick: 0,
-    state: createInitialEngineState(),
+    state: createInitialEngineState(scenarioRuntime),
     selection: undefined,
     view: INITIAL_VIEW,
     recentEvents: [],
   });
 
-  const snapshot = useMemo(() => toSnapshot(store), [store]);
+  const snapshot = useMemo(() => toSnapshot(store, scenarioRuntime), [store, scenarioRuntime]);
 
   const actions = useMemo(
     () => ({
@@ -106,13 +122,13 @@ export function usePresentationStore() {
           }
 
           const activeActorId = getActiveActorId(prev.state);
-          const legalActions = engine.getLegalActions(prev.state, activeActorId);
+          const legalActions = scenarioRuntime.engine.getLegalActions(prev.state, activeActorId);
           const isLegal = legalActions.some((candidate) => isSameAction(candidate, action));
           if (!isLegal) {
             return prev;
           }
 
-          const result = engine.step(prev.state, action);
+          const result = scenarioRuntime.engine.step(prev.state, action);
           return {
             ...prev,
             tick: prev.tick + 1,
@@ -122,7 +138,7 @@ export function usePresentationStore() {
         });
       },
     }),
-    [snapshot.entities],
+    [scenarioRuntime, snapshot.entities],
   );
 
   return { snapshot, actions };

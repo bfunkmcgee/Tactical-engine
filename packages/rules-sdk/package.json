@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./index.ts",
-    "./hooks": "./hooks.ts"
+    "./hooks": "./hooks.ts",
+    "./scenario-runtime": "./scenario-runtime.ts"
   }
 }
