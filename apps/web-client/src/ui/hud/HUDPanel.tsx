@@ -1,5 +1,5 @@
 import type { EngineActionView } from '../state/presentationStore';
-import type { Action } from '../../../../../packages/engine-core/state/GameState';
+import type { Action } from 'engine-core';
 
 type HUDPanelProps = {
   selected?: string;

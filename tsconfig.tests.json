@@ -16,7 +16,25 @@
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "engine-core": [
+        "packages/engine-core/index.ts"
+      ],
+      "rules-sdk": [
+        "packages/rules-sdk/index.ts"
+      ],
+      "rules-sdk/hooks": [
+        "packages/rules-sdk/hooks.ts"
+      ],
+      "engine-spatial": [
+        "packages/engine-spatial/index.ts"
+      ],
+      "engine-entities": [
+        "packages/engine-entities/index.ts"
+      ]
+    }
   },
   "include": [
     "packages/**/*.ts",

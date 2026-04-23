@@ -19,8 +19,8 @@ import {
   UnitId,
   VictoryResult,
   SimulationEvent,
-} from '../../../packages/rules-sdk/src';
-import { DamageEvent, TurnStartEvent, UnitDefeatedEvent } from '../../../packages/rules-sdk/src/hooks';
+} from 'rules-sdk';
+import { type DamageEvent, type TurnStartEvent, type UnitDefeatedEvent } from 'rules-sdk/hooks';
 
 const examplePack: ContentPack = {
   id: 'example-skirmish-pack',

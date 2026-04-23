@@ -15,4 +15,4 @@ export type {
   SimulationUnit,
   TeamId,
   UnitId,
-} from '../../engine-core/state/SimulationContract';
+} from 'engine-core';
