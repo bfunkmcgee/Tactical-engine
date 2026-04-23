@@ -71,7 +71,7 @@ export class Engine {
 
     const context: StrategyContext = { state, action: command };
     const combatEvents = command.type === 'ATTACK' ? [] : this.combatStrategy.collectEvents(context);
-    const emittedEvents: GameEvent[] = [
+    const initialEvents: GameEvent[] = [
       ...this.actionResolver.resolveActionEffects(state, command),
       ...this.spatialStrategy.collectEvents(context),
       ...this.movementStrategy.collectEvents(context),
@@ -79,26 +79,34 @@ export class Engine {
       ...this.statusStrategy.collectEvents(context),
     ];
 
-    let nextState = appendEvents(reduceEvents(state, emittedEvents), emittedEvents);
-    const transitionEvents: GameEvent[] = [];
+    const orderedEvents: GameEvent[] = [];
+    let nextState = state;
 
-    const transition = (current: GameState): GameState => {
-      const result = this.turnManager.advancePhaseWithEvents(current);
-      transitionEvents.push(...result.events);
-      return result.state;
+    const applyEvents = (events: readonly GameEvent[]): void => {
+      if (events.length === 0) {
+        return;
+      }
+
+      orderedEvents.push(...events);
+      nextState = appendEvents(reduceEvents(nextState, events), events);
+    };
+
+    applyEvents(initialEvents);
+
+    const transition = (): void => {
+      const result = this.turnManager.advancePhaseWithEvents(nextState);
+      orderedEvents.push(...result.events);
+      nextState = result.state;
     };
 
     for (const step of this.turnManager.getActionPhaseFlow(command.type, state.phase)) {
       if (step.kind === 'ADVANCE_PHASE') {
-        nextState = transition(nextState);
+        transition();
         continue;
       }
 
       const economyEvents = this.turnEconomyStrategy.collectTurnStartEvents(nextState);
-      if (economyEvents.length > 0) {
-        emittedEvents.push(...economyEvents);
-        nextState = appendEvents(reduceEvents(nextState, economyEvents), economyEvents);
-      }
+      applyEvents(economyEvents);
     }
 
     if (nextState.matchStatus === 'IN_PROGRESS' && this.matchOutcomeEvaluator) {
@@ -111,14 +119,13 @@ export class Engine {
           turn: nextState.turn,
           round: nextState.round,
         };
-        emittedEvents.push(terminalEvent);
-        nextState = appendEvents(reduceEvents(nextState, [terminalEvent]), [terminalEvent]);
+        applyEvents([terminalEvent]);
       }
     }
 
     return {
       state: nextState,
-      events: [...emittedEvents, ...transitionEvents],
+      events: orderedEvents,
     };
   }
 

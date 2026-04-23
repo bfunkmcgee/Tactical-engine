@@ -135,3 +135,69 @@ test('integration: END_COMMAND uses turn-start boundary from phase policy', () =
   assert.equal(result.state.phase, 'COMMAND');
   assert.deepEqual(observedPhases, ['START_TURN']);
 });
+
+test('integration: END_COMMAND returns events in exact reduction order', () => {
+  const state = {
+    ...createInitialState(['A', 'B'], []),
+    phase: 'COMMAND' as const,
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
+  };
+
+  const engine = new Engine(
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      collectTurnStartEvents: (phaseState) => [
+        {
+          kind: 'ACTION_POINTS_CHANGED' as const,
+          unitId: 'economy-marker',
+          from: 0,
+          to: 1,
+          reason: 'TURN_START' as const,
+          turn: phaseState.turn,
+          round: phaseState.round,
+        },
+      ],
+    },
+  );
+
+  const endCommand: Action = {
+    id: 'end-command:A',
+    actorId: 'A',
+    type: 'END_COMMAND',
+    payload: { reason: 'manual' },
+  };
+
+  const result = engine.step(state, endCommand);
+  assert.deepEqual(result.events.map((event) => event.kind), [
+    'ACTION_APPLIED',
+    'PHASE_ADVANCED',
+    'PHASE_ADVANCED',
+    'PHASE_ADVANCED',
+    'TURN_STARTED',
+    'ACTION_POINTS_CHANGED',
+    'PHASE_ADVANCED',
+  ]);
+});
+
+test('integration: PASS returns events in exact reduction order for phase flow', () => {
+  const state = {
+    ...createInitialState(['A', 'B'], []),
+    phase: 'END_TURN' as const,
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
+  };
+
+  const engine = new Engine();
+  const pass: Action = {
+    id: 'pass:A',
+    actorId: 'A',
+    type: 'PASS',
+    payload: { phase: 'END_TURN' },
+  };
+
+  const result = engine.step(state, pass);
+  assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED', 'PHASE_ADVANCED', 'TURN_STARTED']);
+});
