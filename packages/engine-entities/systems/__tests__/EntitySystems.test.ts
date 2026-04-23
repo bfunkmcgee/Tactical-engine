@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
+import { createInitialState } from 'engine-core';
 import { EntityStore } from '../../EntityStore';
 import { ACTION_POINTS_COMPONENT } from '../../components/ActionPoints';
 import { COOLDOWNS_COMPONENT } from '../../components/Cooldowns';
@@ -120,4 +121,59 @@ test('TurnEconomySystem: cooldown decrement and stable turn ordering', () => {
 
   const effective = computeEffectiveStats(store, 'p1');
   assert.ok((effective?.speed ?? -1) >= 0);
+});
+
+test('TurnEconomySystem: active team gains AP in team-turn model', () => {
+  const turnEconomy = new TurnEconomySystem();
+  const state = createInitialState(
+    ['A', 'B'],
+    [
+      { id: 'u-a1', ownerId: 'A', hp: 5, maxHp: 5, actionPoints: 0, maxActionPoints: 2 },
+      { id: 'u-a2', ownerId: 'A', hp: 5, maxHp: 5, actionPoints: 1, maxActionPoints: 2 },
+      { id: 'u-b1', ownerId: 'B', hp: 5, maxHp: 5, actionPoints: 0, maxActionPoints: 2 },
+    ],
+  );
+
+  const events = turnEconomy.collectTurnStartEvents(state);
+  const changedUnits = events.filter((event) => event.kind === 'ACTION_POINTS_CHANGED').map((event) => event.unitId);
+
+  assert.deepEqual(changedUnits.sort(), ['u-a1', 'u-a2']);
+});
+
+test('TurnEconomySystem: inactive team does not gain AP during opponent turn', () => {
+  const turnEconomy = new TurnEconomySystem();
+  const state = {
+    ...createInitialState(
+      ['A', 'B'],
+      [
+        { id: 'u-a', ownerId: 'A', hp: 5, maxHp: 5, actionPoints: 1, maxActionPoints: 3 },
+        { id: 'u-b', ownerId: 'B', hp: 5, maxHp: 5, actionPoints: 1, maxActionPoints: 3 },
+      ],
+    ),
+    activeActivationSlot: { id: 'team:B', entityId: 'B', teamId: 'B', label: 'Team B' },
+  };
+
+  const events = turnEconomy.collectTurnStartEvents(state);
+  const changedUnits = events.filter((event) => event.kind === 'ACTION_POINTS_CHANGED').map((event) => event.unitId);
+
+  assert.deepEqual(changedUnits, ['u-b']);
+});
+
+test('TurnEconomySystem: only active unit gains AP in unit-turn model', () => {
+  const turnEconomy = new TurnEconomySystem();
+  const state = {
+    ...createInitialState(
+      ['A', 'B'],
+      [
+        { id: 'u-a', ownerId: 'A', hp: 5, maxHp: 5, actionPoints: 1, maxActionPoints: 3 },
+        { id: 'u-b', ownerId: 'B', hp: 5, maxHp: 5, actionPoints: 1, maxActionPoints: 3 },
+      ],
+    ),
+    activeActivationSlot: { id: 'unit:u-a', entityId: 'u-a', teamId: 'A', label: 'Unit u-a' },
+  };
+
+  const events = turnEconomy.collectTurnStartEvents(state);
+  const changedUnits = events.filter((event) => event.kind === 'ACTION_POINTS_CHANGED').map((event) => event.unitId);
+
+  assert.deepEqual(changedUnits, ['u-a']);
 });
