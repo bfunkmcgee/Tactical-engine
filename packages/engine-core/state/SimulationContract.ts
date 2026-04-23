@@ -137,6 +137,15 @@ export type SimulationEvent =
       readonly round: number;
     }
   | {
+      readonly kind: 'ACTION_REJECTED';
+      readonly actorId: ActivationId;
+      readonly actionType: ActionType;
+      readonly reason: string;
+      readonly details?: Readonly<Record<string, string | number | boolean>>;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
       readonly kind: 'UNIT_MOVED';
       readonly unitId: UnitId;
       readonly from: Position;

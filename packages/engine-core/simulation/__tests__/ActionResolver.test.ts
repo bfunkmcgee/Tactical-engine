@@ -63,8 +63,31 @@ test('ActionResolver does not mutate state for invalid actions', () => {
   };
 
   const result = resolver.applyAction(state, invalidAction);
-  assert.equal(result.events.length, 0);
-  assert.equal(result.state, state);
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0]?.kind, 'ACTION_REJECTED');
+  assert.equal(result.state.eventLog.at(-1)?.kind, 'ACTION_REJECTED');
+  assert.notStrictEqual(result.state, state);
+});
+
+test('ActionResolver emits rejection reason/details for invalid actions', () => {
+  const state = createState();
+  const invalidAction: Action = {
+    id: 'attack:A:u-b',
+    actorId: 'A',
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: -5 },
+  };
+
+  const result = resolver.applyAction(state, invalidAction);
+  assert.deepEqual(result.events[0], {
+    kind: 'ACTION_REJECTED',
+    actorId: 'A',
+    actionType: 'ATTACK',
+    reason: 'ATTACK_AMOUNT_INVALID',
+    details: { amount: '-5' },
+    turn: 1,
+    round: 1,
+  });
 });
 
 test('ActionResolver emits canonical action event for valid actions', () => {

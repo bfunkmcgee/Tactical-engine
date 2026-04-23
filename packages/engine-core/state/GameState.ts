@@ -108,6 +108,10 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
       return state;
     }
 
+    case 'ACTION_REJECTED': {
+      return state;
+    }
+
     case 'UNIT_MOVED': {
       const unit = state.units[event.unitId];
       if (!unit) {

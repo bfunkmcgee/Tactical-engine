@@ -78,6 +78,14 @@ function toEventFeedback(event: GameEvent): string | null {
       return `Turn ${event.turn}, Round ${event.round}: ${event.actorId}`;
     case 'INTEGRITY_VIOLATION':
       return `Integrity warning: ${event.invariant}`;
+    case 'ACTION_REJECTED': {
+      const detailsSuffix = event.details
+        ? ` (${Object.entries(event.details)
+            .map(([key, value]) => `${key}: ${String(value)}`)
+            .join(', ')})`
+        : '';
+      return `Action rejected (${event.actionType}) for ${event.actorId}: ${event.reason}${detailsSuffix}`;
+    }
     case 'MATCH_ENDED':
       return event.isDraw ? 'Match ended in a draw.' : `Match ended. Winner: ${event.winnerTeamId ?? 'unknown'}`;
     default:
