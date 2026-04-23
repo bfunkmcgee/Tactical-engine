@@ -239,7 +239,7 @@ export class ExampleRuleSet implements RuleSet {
           kind: 'TURN_STARTED',
           actorId: event.activeTeamId,
           turn: event.turn,
-          round: 1,
+          round: event.round,
         },
       ];
     }
@@ -254,7 +254,7 @@ export class ExampleRuleSet implements RuleSet {
           amount: event.amount,
           abilityId: event.abilityId,
           turn: event.turn,
-          round: 1,
+          round: event.round,
         },
       ];
     }
@@ -266,7 +266,7 @@ export class ExampleRuleSet implements RuleSet {
         sourceUnitId: event.sourceUnitId,
         targetId: event.unitId,
         turn: event.turn,
-        round: 1,
+        round: event.round,
       },
     ];
   }
