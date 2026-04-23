@@ -7,6 +7,7 @@ import {
 } from 'engine-core';
 import { createExampleScenarioRuntime } from '../../../../../games/example-skirmish/scenario/runtime';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
+import { isSameAction } from './actionIdentity';
 
 export type { EngineSnapshot, Entity, ViewState, EngineActionView } from './engineSnapshot';
 
@@ -99,13 +100,7 @@ export function usePresentationStore() {
 
           const activeActorId = getActiveActorId(prev.state);
           const legalActions = engine.getLegalActions(prev.state, activeActorId);
-          const requestedPayload = JSON.stringify(action.payload ?? null);
-          const isLegal = legalActions.some(
-            (candidate) =>
-              candidate.type === action.type &&
-              candidate.actorId === action.actorId &&
-              JSON.stringify(candidate.payload ?? null) === requestedPayload,
-          );
+          const isLegal = legalActions.some((candidate) => isSameAction(candidate, action));
           if (!isLegal) {
             return prev;
           }
