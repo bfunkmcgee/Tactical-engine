@@ -32,6 +32,9 @@
       "rules-sdk/hooks": [
         "../../packages/rules-sdk/hooks.ts"
       ],
+      "rules-sdk/scenario-runtime": [
+        "../../packages/rules-sdk/scenario-runtime.ts"
+      ],
       "engine-spatial": [
         "../../packages/engine-spatial/index.ts"
       ],

@@ -5,13 +5,29 @@ import {
   RulesetLegalActionGenerator,
   RulesSdkActionAdapter,
   RulesSdkMatchOutcomeEvaluator,
-  type GameState,
   type UnitState,
 } from 'engine-core';
+import {
+  createScenarioRuntime,
+  type ScenarioRuntime,
+  type ScenarioRuntimeMetadata,
+} from 'rules-sdk/scenario-runtime';
 import { ExampleRuleSet, exampleContent } from '../rules/ExampleRuleSet';
 
 const EXAMPLE_MAP_ID = 'example_arena';
 const EXAMPLE_PLAYERS = ['alliance', 'raiders'] as const;
+
+export const EXAMPLE_SCENARIO_ID = 'example-skirmish';
+
+export const EXAMPLE_SCENARIO_METADATA: ScenarioRuntimeMetadata = {
+  id: EXAMPLE_SCENARIO_ID,
+  name: 'Example Skirmish',
+  description: 'Starter 2-team skirmish scenario used by the web-client.',
+  teamColors: {
+    alliance: '#4f86f7',
+    raiders: '#d65b4b',
+  },
+};
 
 const EXAMPLE_UNITS: readonly UnitState[] = [
   {
@@ -66,14 +82,9 @@ const EXAMPLE_UNITS: readonly UnitState[] = [
   },
 ];
 
-export interface ExampleScenarioRuntime {
-  readonly mapId: string;
-  readonly players: readonly string[];
-  readonly units: readonly UnitState[];
+export type ExampleScenarioRuntime = ScenarioRuntime & {
   readonly ruleSet: ExampleRuleSet;
-  readonly engine: Engine;
-  createInitialState(): GameState;
-}
+};
 
 export function createExampleScenarioRuntime(): ExampleScenarioRuntime {
   const ruleSet = new ExampleRuleSet();
@@ -98,11 +109,14 @@ export function createExampleScenarioRuntime(): ExampleScenarioRuntime {
   });
 
   return {
-    mapId: EXAMPLE_MAP_ID,
-    players: [...EXAMPLE_PLAYERS],
-    units: [...EXAMPLE_UNITS],
+    ...createScenarioRuntime({
+      metadata: EXAMPLE_SCENARIO_METADATA,
+      mapId: EXAMPLE_MAP_ID,
+      players: [...EXAMPLE_PLAYERS],
+      units: [...EXAMPLE_UNITS],
+      engine: new Engine(actionResolver, undefined, undefined, undefined, undefined, undefined, undefined, undefined, matchOutcomeEvaluator),
+      createInitialState: () => createInitialState(EXAMPLE_PLAYERS, EXAMPLE_UNITS),
+    }),
     ruleSet,
-    engine: new Engine(actionResolver, undefined, undefined, undefined, undefined, undefined, undefined, undefined, matchOutcomeEvaluator),
-    createInitialState: () => createInitialState(EXAMPLE_PLAYERS, EXAMPLE_UNITS),
   };
 }
