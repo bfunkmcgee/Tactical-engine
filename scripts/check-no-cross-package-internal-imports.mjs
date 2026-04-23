@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const PACKAGES_ROOT = path.join(REPO_ROOT, 'packages');
 const DEFAULT_SOURCE_FILES = ['apps/**/*.ts', 'apps/**/*.tsx', 'games/**/*.ts', 'packages/**/*.ts', 'packages/**/*.tsx'];
 const DEFAULT_EXCLUDES = ['**/node_modules/**', '**/.tmp-test-dist/**', '**/__tests__/**'];
 const IMPORT_PATTERN = /from\s+['\"]([^'\"]+)['\"]/g;
@@ -34,9 +35,18 @@ function parseArgs(argv) {
 }
 
 function getPackageRoot(candidatePath) {
-  const normalized = candidatePath.replaceAll('\\', '/');
-  const match = normalized.match(/^(.*\/packages\/[^/]+)(?:\/|$)/u);
-  return match ? path.resolve(match[1]) : null;
+  const absolutePath = path.resolve(candidatePath);
+  const relativeToPackages = path.relative(PACKAGES_ROOT, absolutePath);
+  if (relativeToPackages.startsWith('..') || path.isAbsolute(relativeToPackages)) {
+    return null;
+  }
+
+  const [packageName] = relativeToPackages.split(path.sep);
+  if (!packageName) {
+    return null;
+  }
+
+  return path.join(PACKAGES_ROOT, packageName);
 }
 
 function resolveTargetPath(filePath, specifier) {
