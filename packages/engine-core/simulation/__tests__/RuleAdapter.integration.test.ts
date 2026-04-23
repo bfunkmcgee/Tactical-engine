@@ -65,3 +65,37 @@ test('attack resolution uses rules-sdk damage instead of demo fixed damage', () 
 
   assert.equal(result.state.units['raider-1']?.hp, 90);
 });
+
+test('ExampleRuleSet toEngineEvents forwards turn and round from hook events', () => {
+  const runtime = createExampleScenarioRuntime();
+
+  const turnStart = runtime.ruleSet.toEngineEvents({
+    turn: 8,
+    round: 3,
+    activeTeamId: 'alliance',
+    unitIds: ['alliance-1'],
+  });
+  const damaged = runtime.ruleSet.toEngineEvents({
+    turn: 8,
+    round: 3,
+    activeTeamId: 'alliance',
+    sourceUnitId: 'alliance-1',
+    targetUnitId: 'raider-1',
+    amount: 12,
+    abilityId: 'rifle_shot',
+  });
+  const defeated = runtime.ruleSet.toEngineEvents({
+    turn: 8,
+    round: 3,
+    activeTeamId: 'alliance',
+    sourceUnitId: 'alliance-1',
+    unitId: 'raider-1',
+  });
+
+  assert.equal(turnStart[0]?.turn, 8);
+  assert.equal(turnStart[0]?.round, 3);
+  assert.equal(damaged[0]?.turn, 8);
+  assert.equal(damaged[0]?.round, 3);
+  assert.equal(defeated[0]?.turn, 8);
+  assert.equal(defeated[0]?.round, 3);
+});

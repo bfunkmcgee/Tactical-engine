@@ -5,6 +5,7 @@ export type AbilityId = string;
 
 export interface LifecycleContext {
   turn: number;
+  round: number;
   activeTeamId: TeamId;
 }
 

@@ -47,6 +47,41 @@ test('TurnManager wraps turns and rounds at end of turn', () => {
   assert.equal(result.state.phase, 'START_TURN');
 });
 
+test('TurnManager preserves turn/round consistency across repeated turn rotations', () => {
+  let state = createState({
+    phase: 'END_TURN',
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
+    turn: 1,
+    round: 1,
+  });
+
+  for (let rotation = 0; rotation < 4; rotation += 1) {
+    const expectedTurn = state.turn + 1;
+    const expectedRound = state.activeActivationSlot.teamId === 'B' ? state.round + 1 : state.round;
+    const result = manager.advancePhaseWithEvents(state);
+
+    const phaseEvent = result.events.find((event) => event.kind === 'PHASE_ADVANCED');
+    const turnStarted = result.events.find((event) => event.kind === 'TURN_STARTED');
+
+    assert.ok(phaseEvent);
+    assert.equal(phaseEvent?.turn, state.turn);
+    assert.equal(phaseEvent?.round, state.round);
+
+    assert.ok(turnStarted);
+    if (turnStarted?.kind === 'TURN_STARTED') {
+      assert.equal(turnStarted.turn, expectedTurn);
+      assert.equal(turnStarted.round, expectedRound);
+    }
+
+    assert.equal(result.state.turn, expectedTurn);
+    assert.equal(result.state.round, expectedRound);
+
+    state = {
+      ...result.state,
+      phase: 'END_TURN',
+    };
+  }
+});
 test('TurnManager supports unit-turn scheduler variant', () => {
   const state = createState({
     phase: 'END_TURN',
