@@ -15,6 +15,10 @@ import {
 test('adapter resolves default scenario runtime from package registry', () => {
   const adapter = createPresentationStoreScenarioAdapter();
 
+  assert.ok(adapter.scenarioRuntime);
+  if (!adapter.scenarioRuntime) {
+    throw new Error('Expected scenario runtime to be initialized');
+  }
   assert.equal(adapter.scenarioRuntime.metadata.id, DEFAULT_SCENARIO_ID);
   assert.ok(adapter.scenarioRuntime.players.length > 0);
 });
@@ -45,6 +49,36 @@ test('adapter creates scenario runtime by scenario id via registry abstraction',
     registry,
   });
 
+  assert.ok(adapter.scenarioRuntime);
+  if (!adapter.scenarioRuntime) {
+    throw new Error('Expected scenario runtime to be initialized');
+  }
   assert.equal(adapter.scenarioRuntime.metadata.name, 'Custom Scenario');
   assert.equal(adapter.scenarioRuntime.mapId, 'test-map');
+});
+
+test('adapter surfaces scenario initialization diagnostics from runtime factory errors', () => {
+  const registry = createScenarioRuntimeRegistry({
+    [DEFAULT_SCENARIO_ID]: () => {
+      const error = new Error('bad scenario');
+      (error as Error & { diagnostics?: unknown }).diagnostics = [
+        {
+          source: 'games/example-skirmish/content/units.json',
+          field: 'units[0].abilityIds[1]',
+          reason: "references missing ability 'missing_ability' for unit 'alliance_infantry'",
+        },
+      ];
+      throw error;
+    },
+  });
+
+  const adapter = createPresentationStoreScenarioAdapter({
+    scenarioId: DEFAULT_SCENARIO_ID,
+    registry,
+  });
+
+  assert.equal(adapter.scenarioRuntime, undefined);
+  assert.equal(adapter.initializationError?.message, `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'.`);
+  assert.equal(adapter.initializationError?.diagnostics?.[0]?.source, 'games/example-skirmish/content/units.json');
+  assert.match(adapter.initializationError?.diagnostics?.[0]?.reason ?? '', /missing_ability/u);
 });

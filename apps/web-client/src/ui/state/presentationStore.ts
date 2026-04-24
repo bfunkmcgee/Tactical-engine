@@ -21,7 +21,15 @@ export const DEFAULT_SCENARIO_ID = EXAMPLE_SCENARIO_ID;
 const INITIAL_VIEW: ViewState = { zoom: 1, offsetX: 0, offsetY: 0 };
 
 export type PresentationStoreScenarioAdapter = {
-  readonly scenarioRuntime: ScenarioRuntime;
+  readonly scenarioRuntime?: ScenarioRuntime;
+  readonly initializationError?: {
+    readonly message: string;
+    readonly diagnostics?: readonly {
+      readonly source: string;
+      readonly field: string;
+      readonly reason: string;
+    }[];
+  };
 };
 
 export function createPresentationStoreScenarioAdapter(options?: {
@@ -30,9 +38,30 @@ export function createPresentationStoreScenarioAdapter(options?: {
 }): PresentationStoreScenarioAdapter {
   const scenarioId = options?.scenarioId ?? DEFAULT_SCENARIO_ID;
   const registry = options?.registry ?? createDefaultScenarioRuntimeRegistry();
-  return {
-    scenarioRuntime: registry.create(scenarioId),
-  };
+  try {
+    return {
+      scenarioRuntime: registry.create(scenarioId),
+    };
+  } catch (error) {
+    const diagnostics = isDiagnosticError(error) ? error.diagnostics : undefined;
+    return {
+      initializationError: {
+        message: `Unable to initialize scenario '${scenarioId}'.`,
+        diagnostics,
+      },
+    };
+  }
+}
+
+function isDiagnosticError(error: unknown): error is {
+  readonly diagnostics: readonly { source: string; field: string; reason: string }[];
+} {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'diagnostics' in error &&
+    Array.isArray((error as { diagnostics?: unknown }).diagnostics)
+  );
 }
 
 type StoreState = {
@@ -63,8 +92,7 @@ function toSnapshot(store: StoreState, runtime: ScenarioRuntime): EngineSnapshot
   });
 }
 
-export function usePresentationStore() {
-  const { scenarioRuntime } = useMemo(() => createPresentationStoreScenarioAdapter(), []);
+export function usePresentationStore(scenarioRuntime: ScenarioRuntime) {
   const initialEngineSnapshot = useMemo(() => createInitialEngineSnapshot(scenarioRuntime), [scenarioRuntime]);
 
   const [store, setStore] = useState<StoreState>({

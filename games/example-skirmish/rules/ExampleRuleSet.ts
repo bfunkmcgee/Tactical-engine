@@ -7,11 +7,13 @@ import units from '../content/units.json';
 import {
   AbilityDefinition,
   BattleState,
+  ContentPackValidationError,
   ContentIndex,
   ContentPack,
   FactionDefinition,
   TileDefinition,
   UnitDefinition,
+  ValidationIssue,
   createContentIndex,
   validateContentPack,
   DamageResolution,
@@ -24,19 +26,70 @@ import {
 } from 'rules-sdk';
 import { type DamageEvent, type TurnStartEvent, type UnitDefeatedEvent } from 'rules-sdk/hooks';
 
-const examplePack: ContentPack = {
-  id: 'example-skirmish-pack',
-  version: '1.1.0',
-  units: units as UnitDefinition[],
-  abilities: abilities as AbilityDefinition[],
-  tiles: tiles as TileDefinition[],
-  maps: maps as ContentPack['maps'],
-  factions: factions as FactionDefinition[],
+const EXAMPLE_CONTENT_SOURCES = {
+  units: 'games/example-skirmish/content/units.json',
+  abilities: 'games/example-skirmish/content/abilities.json',
+  tiles: 'games/example-skirmish/content/tiles.json',
+  maps: 'games/example-skirmish/content/maps.json',
+  factions: 'games/example-skirmish/content/factions.json',
+} as const;
+
+export type ExampleScenarioValidationDiagnostic = {
+  readonly source: string;
+  readonly field: string;
+  readonly reason: string;
 };
 
-validateContentPack(examplePack, 'games/example-skirmish/content/*.json');
+export class ExampleScenarioValidationError extends Error {
+  readonly diagnostics: readonly ExampleScenarioValidationDiagnostic[];
 
-export const exampleContent = createContentIndex(examplePack);
+  constructor(diagnostics: readonly ExampleScenarioValidationDiagnostic[]) {
+    super(
+      `Example scenario content is invalid (${diagnostics.length} issue${diagnostics.length === 1 ? '' : 's'})`,
+    );
+    this.name = 'ExampleScenarioValidationError';
+    this.diagnostics = diagnostics;
+  }
+}
+
+function createExampleContentPack(): ContentPack {
+  return {
+    id: 'example-skirmish-pack',
+    version: '1.1.0',
+    units: units as UnitDefinition[],
+    abilities: abilities as AbilityDefinition[],
+    tiles: tiles as TileDefinition[],
+    maps: maps as ContentPack['maps'],
+    factions: factions as FactionDefinition[],
+  };
+}
+
+function toValidationDiagnostic(issue: ValidationIssue): ExampleScenarioValidationDiagnostic {
+  const [rootField] = issue.path.split(/[.[]/u);
+  const source =
+    EXAMPLE_CONTENT_SOURCES[rootField as keyof typeof EXAMPLE_CONTENT_SOURCES] ??
+    'games/example-skirmish/content/*.json';
+  return {
+    source,
+    field: issue.path,
+    reason: issue.message,
+  };
+}
+
+export function createValidatedExampleContent(contentPack: ContentPack = createExampleContentPack()): ContentIndex {
+  try {
+    validateContentPack(contentPack, 'games/example-skirmish/content/*.json');
+  } catch (error) {
+    if (error instanceof ContentPackValidationError) {
+      throw new ExampleScenarioValidationError(error.issues.map(toValidationDiagnostic));
+    }
+    throw error;
+  }
+
+  return createContentIndex(contentPack);
+}
+
+export const exampleContent = createContentIndex(createExampleContentPack());
 
 function manhattanDistance(a: Position, b: Position): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);

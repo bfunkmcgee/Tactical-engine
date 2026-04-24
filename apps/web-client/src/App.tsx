@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ScenarioRuntime } from 'rules-sdk';
 import { BoardCanvas } from './ui/board/BoardCanvas';
 import { HUDPanel } from './ui/hud/HUDPanel';
 import { useGestureInput } from './ui/input/useGestureInput';
@@ -45,8 +46,8 @@ export function subscribeLayoutClass(
   };
 }
 
-export function App() {
-  const { snapshot, actions } = usePresentationStore();
+export function App({ scenarioRuntime }: { scenarioRuntime: ScenarioRuntime }) {
+  const { snapshot, actions } = usePresentationStore(scenarioRuntime);
   const gestureHandlers = useGestureInput({
     onTap: actions.selectTile,
     onDrag: actions.pan,

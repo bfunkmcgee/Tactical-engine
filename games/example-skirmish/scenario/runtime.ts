@@ -12,7 +12,14 @@ import {
   type ScenarioRuntime,
   type ScenarioRuntimeMetadata,
 } from 'rules-sdk/scenario-runtime';
-import { ExampleRuleSet, exampleContent } from '../rules/ExampleRuleSet';
+import type { ContentIndex } from 'rules-sdk';
+import type { ContentPack } from 'rules-sdk';
+import {
+  createValidatedExampleContent,
+  ExampleRuleSet,
+  type ExampleScenarioValidationDiagnostic,
+  ExampleScenarioValidationError,
+} from '../rules/ExampleRuleSet';
 
 const EXAMPLE_MAP_ID = 'example_arena';
 const EXAMPLE_PLAYERS = ['alliance', 'raiders'] as const;
@@ -86,24 +93,47 @@ export type ExampleScenarioRuntime = ScenarioRuntime & {
   readonly ruleSet: ExampleRuleSet;
 };
 
-export function createExampleScenarioRuntime(): ExampleScenarioRuntime {
+export type ExampleScenarioRuntimeOptions = {
+  readonly contentPack?: ContentPack;
+};
+
+export class ExampleScenarioInitializationError extends Error {
+  readonly diagnostics: readonly ExampleScenarioValidationDiagnostic[];
+
+  constructor(diagnostics: readonly ExampleScenarioValidationDiagnostic[]) {
+    super('Example scenario failed to initialize due to invalid content.');
+    this.name = 'ExampleScenarioInitializationError';
+    this.diagnostics = diagnostics;
+  }
+}
+
+export function createExampleScenarioRuntime(options: ExampleScenarioRuntimeOptions = {}): ExampleScenarioRuntime {
   const ruleSet = new ExampleRuleSet();
+  let content: ContentIndex;
+  try {
+    content = createValidatedExampleContent(options.contentPack);
+  } catch (error) {
+    if (error instanceof ExampleScenarioValidationError) {
+      throw new ExampleScenarioInitializationError(error.diagnostics);
+    }
+    throw error;
+  }
   const legalActions = new RulesetLegalActionGenerator({
     ruleSet,
-    content: exampleContent,
+    content,
     mapId: EXAMPLE_MAP_ID,
     attackAbilityId: 'rifle_shot',
   });
   const ruleAdapter = new RulesSdkActionAdapter({
     ruleSet,
-    content: exampleContent,
+    content,
     mapId: EXAMPLE_MAP_ID,
     defaultAttackAbilityId: 'rifle_shot',
   });
   const actionResolver = new ActionResolver(legalActions, ruleAdapter);
   const matchOutcomeEvaluator = new RulesSdkMatchOutcomeEvaluator({
     ruleSet,
-    content: exampleContent,
+    content,
     mapId: EXAMPLE_MAP_ID,
     defaultAttackAbilityId: 'rifle_shot',
   });
