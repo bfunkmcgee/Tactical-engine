@@ -21,7 +21,7 @@ const SCALING_BASES = new Set<NonNullable<AbilityDefinition['scaling']>['basedOn
   'targetMaxHealth',
 ]);
 
-interface ValidationIssue {
+export interface ValidationIssue {
   path: string;
   message: string;
 }
