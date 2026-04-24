@@ -99,6 +99,40 @@ export class Engine {
     return this.step(state, action);
   }
 
+  public initialize(state: GameState): StateTransitionResult {
+    if (state.matchStatus === 'ENDED') {
+      return { state, events: [] };
+    }
+
+    const orderedEvents: GameEvent[] = [];
+    let nextState = state;
+
+    const applyEvents = (events: readonly GameEvent[]): void => {
+      if (events.length === 0) {
+        return;
+      }
+
+      orderedEvents.push(...events);
+      nextState = appendEvents(reduceEvents(nextState, events), events);
+    };
+
+    const turnStartResult = this.turnManager.startTurnWithEvents(nextState);
+    applyEvents(turnStartResult.events);
+
+    const economyEvents = this.turnEconomyStrategy.collectTurnStartEvents(nextState);
+    applyEvents(economyEvents);
+
+    if (nextState.phase === 'START_TURN') {
+      const phaseAdvanceResult = this.turnManager.advancePhaseWithEvents(nextState);
+      applyEvents(phaseAdvanceResult.events);
+    }
+
+    return {
+      state: nextState,
+      events: orderedEvents,
+    };
+  }
+
   public step(state: GameState, command: Action): StateTransitionResult {
     if (state.matchStatus === 'ENDED') {
       return { state, events: [] };
@@ -194,6 +228,10 @@ const defaultEngine = new Engine();
 
 export function applyAction(state: GameState, action: Action): StateTransitionResult {
   return defaultEngine.applyAction(state, action);
+}
+
+export function initialize(state: GameState): StateTransitionResult {
+  return defaultEngine.initialize(state);
 }
 
 export function step(state: GameState, command: Action): StateTransitionResult {

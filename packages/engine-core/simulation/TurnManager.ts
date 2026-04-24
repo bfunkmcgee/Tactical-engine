@@ -102,6 +102,45 @@ export class TurnManager {
     return this.advancePhaseWithEvents(state).state;
   }
 
+  public startTurnWithEvents(state: GameState): StateTransitionResult {
+    const events: GameEvent[] = [];
+
+    if (state.players.length === 0) {
+      const integrityEvent = this.createIntegrityViolationEvent(
+        state,
+        'players_non_empty',
+        'Cannot start turn because the players list is empty.',
+      );
+
+      return {
+        state: appendEvents(state, [integrityEvent]),
+        events: [integrityEvent],
+      };
+    }
+
+    const normalizedState = this.ensureActiveSlot(state, events);
+    if (normalizedState.phase !== 'START_TURN') {
+      return {
+        state: appendEvents(normalizedState, events),
+        events,
+      };
+    }
+
+    const turnStartEvent: GameEvent = {
+      kind: 'TURN_STARTED',
+      actorId: normalizedState.activeActivationSlot.entityId,
+      activationSlot: normalizedState.activeActivationSlot,
+      turn: normalizedState.turn,
+      round: normalizedState.round,
+    };
+    events.push(turnStartEvent);
+
+    return {
+      state: appendEvents(reduceEvents(normalizedState, [turnStartEvent]), events),
+      events,
+    };
+  }
+
   public advancePhaseWithEvents(state: GameState): StateTransitionResult {
     const events: GameEvent[] = [];
 
