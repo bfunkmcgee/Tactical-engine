@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 
-import { createInitialState, type GameState } from 'engine-core';
+import { Engine, createInitialState, type Action, type GameState } from 'engine-core';
 import { getDeterministicTeamColor, projectEngineSnapshot, resolveTeamColor } from '../engineSnapshot';
 
 function createState(): GameState {
@@ -79,4 +79,38 @@ test('projectEngineSnapshot exposes ACTION_REJECTED feedback details', () => {
     snapshot.feedback[0],
     'Action rejected (MOVE) for alliance: MOVE_BLOCKED (tile: 1,0, occupied: true)',
   );
+});
+
+test('projectEngineSnapshot surfaces Engine.step rejection feedback for invalid actions', () => {
+  const engine = new Engine();
+  const initialState = {
+    ...createInitialState(
+      ['alliance', 'raiders'],
+      [
+        { id: 'u-alliance', ownerId: 'alliance', hp: 10, maxHp: 10, position: { x: 0, y: 0 } },
+        { id: 'u-raider', ownerId: 'raiders', hp: 9, maxHp: 9, position: { x: 1, y: 0 } },
+      ],
+    ),
+    phase: 'COMMAND' as const,
+    activeActivationSlot: { id: 'team:alliance', entityId: 'alliance', teamId: 'alliance' },
+  };
+  const invalidAction: Action = {
+    id: 'attack:alliance:u-raider',
+    actorId: 'alliance',
+    type: 'ATTACK',
+    payload: { targetId: 'u-raider', amount: -2 },
+  };
+
+  const result = engine.step(initialState, invalidAction);
+  const snapshot = projectEngineSnapshot({
+    state: result.state,
+    events: result.events,
+    selection: undefined,
+    tick: 9,
+    view: { zoom: 1, offsetX: 0, offsetY: 0 },
+    getLegalActions: engine.getLegalActions.bind(engine),
+  });
+
+  assert.equal(result.events[0]?.kind, 'ACTION_REJECTED');
+  assert.equal(snapshot.feedback[0], 'Action rejected (ATTACK) for alliance: ATTACK_AMOUNT_INVALID (amount: -2)');
 });

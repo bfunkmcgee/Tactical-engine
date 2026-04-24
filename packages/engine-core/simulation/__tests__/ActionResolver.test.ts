@@ -90,6 +90,27 @@ test('ActionResolver emits rejection reason/details for invalid actions', () => 
   });
 });
 
+test('ActionResolver includes actor and action metadata in rejection events', () => {
+  const state = createState();
+  const invalidMove: Action = {
+    id: 'move:A:u-a:occupied',
+    actorId: 'A',
+    type: 'MOVE',
+    payload: { unitId: 'u-a', to: { x: 3, y: 1 } },
+  };
+
+  const result = resolver.applyAction(state, invalidMove);
+  assert.deepEqual(result.events[0], {
+    kind: 'ACTION_REJECTED',
+    actorId: 'A',
+    actionType: 'MOVE',
+    reason: 'MOVE_DESTINATION_OCCUPIED',
+    details: { actorId: 'A', unitId: 'u-a', x: 3, y: 1 },
+    turn: 1,
+    round: 1,
+  });
+});
+
 test('ActionResolver emits canonical action event for valid actions', () => {
   const state = createState();
   const action: Action = {
