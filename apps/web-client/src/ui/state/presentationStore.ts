@@ -43,8 +43,12 @@ type StoreState = {
   recentEvents: readonly GameEvent[];
 };
 
-function createInitialEngineState(runtime: ScenarioRuntime): GameState {
-  return runtime.engine.advancePhase(runtime.createInitialState());
+function createInitialEngineSnapshot(runtime: ScenarioRuntime): Pick<StoreState, 'state' | 'recentEvents'> {
+  const initialization = runtime.engine.initialize(runtime.createInitialState());
+  return {
+    state: initialization.state,
+    recentEvents: initialization.events.slice(-4),
+  };
 }
 
 function toSnapshot(store: StoreState, runtime: ScenarioRuntime): EngineSnapshot {
@@ -61,13 +65,14 @@ function toSnapshot(store: StoreState, runtime: ScenarioRuntime): EngineSnapshot
 
 export function usePresentationStore() {
   const { scenarioRuntime } = useMemo(() => createPresentationStoreScenarioAdapter(), []);
+  const initialEngineSnapshot = useMemo(() => createInitialEngineSnapshot(scenarioRuntime), [scenarioRuntime]);
 
   const [store, setStore] = useState<StoreState>({
     tick: 0,
-    state: createInitialEngineState(scenarioRuntime),
+    state: initialEngineSnapshot.state,
     selection: undefined,
     view: INITIAL_VIEW,
-    recentEvents: [],
+    recentEvents: initialEngineSnapshot.recentEvents,
   });
 
   const snapshot = useMemo(() => toSnapshot(store, scenarioRuntime), [store, scenarioRuntime]);

@@ -236,3 +236,35 @@ test('integration: Engine.step surfaces ACTION_REJECTED for invalid actions', ()
   });
   assert.equal(result.state.eventLog.at(-1)?.kind, 'ACTION_REJECTED');
 });
+
+test('integration: engine.initialize emits deterministic startup boundary events', () => {
+  const engine = new Engine();
+  const state = createInitialState(['A', 'B'], []);
+
+  const startup = engine.initialize(state);
+  assert.deepEqual(startup.events.map((event) => event.kind), ['TURN_STARTED', 'PHASE_ADVANCED']);
+  assert.equal(startup.state.phase, 'COMMAND');
+  assert.equal(startup.state.turn, 1);
+  assert.equal(startup.state.round, 1);
+});
+
+test('integration: engine.initialize applies turn-economy between TURN_STARTED and phase advance', () => {
+  const engine = new Engine({
+    turnEconomyStrategy: {
+      collectTurnStartEvents: (state) => [
+        {
+          kind: 'ACTION_POINTS_CHANGED',
+          unitId: 'economy-marker',
+          from: 0,
+          to: 1,
+          reason: 'TURN_START',
+          turn: state.turn,
+          round: state.round,
+        },
+      ],
+    },
+  });
+
+  const startup = engine.initialize(createInitialState(['A', 'B'], []));
+  assert.deepEqual(startup.events.map((event) => event.kind), ['TURN_STARTED', 'ACTION_POINTS_CHANGED', 'PHASE_ADVANCED']);
+});

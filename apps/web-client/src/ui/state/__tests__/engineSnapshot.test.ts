@@ -114,3 +114,43 @@ test('projectEngineSnapshot surfaces Engine.step rejection feedback for invalid 
   assert.equal(result.events[0]?.kind, 'ACTION_REJECTED');
   assert.equal(snapshot.feedback[0], 'Action rejected (ATTACK) for alliance: ATTACK_AMOUNT_INVALID (amount: -2)');
 });
+
+test('projectEngineSnapshot uses engine.initialize startup context with turn-start parity', () => {
+  const engine = new Engine();
+  const startup = engine.initialize(createState());
+
+  const startupSnapshot = projectEngineSnapshot({
+    state: startup.state,
+    events: startup.events,
+    selection: undefined,
+    tick: 0,
+    view: { zoom: 1, offsetX: 0, offsetY: 0 },
+    getLegalActions: engine.getLegalActions.bind(engine),
+  });
+
+  const endTurnState = {
+    ...createState(),
+    phase: 'END_TURN' as const,
+    activeActivationSlot: { id: 'team:alliance', entityId: 'alliance', teamId: 'alliance' },
+  };
+  const boundary = engine.step(endTurnState, {
+    id: 'pass:alliance',
+    actorId: 'alliance',
+    type: 'PASS',
+    payload: { phase: 'END_TURN' },
+  });
+  const boundarySnapshot = projectEngineSnapshot({
+    state: boundary.state,
+    events: boundary.events.slice(1),
+    selection: undefined,
+    tick: 1,
+    view: { zoom: 1, offsetX: 0, offsetY: 0 },
+    getLegalActions: engine.getLegalActions.bind(engine),
+  });
+
+  assert.equal(startupSnapshot.phase, boundarySnapshot.phase);
+  assert.equal(startupSnapshot.turn, 1);
+  assert.equal(startupSnapshot.round, 1);
+  assert.deepEqual(startupSnapshot.feedback, ['Turn 1, Round 1: alliance', 'Phase: START_TURN → COMMAND']);
+  assert.deepEqual(startupSnapshot.feedback, boundarySnapshot.feedback);
+});
