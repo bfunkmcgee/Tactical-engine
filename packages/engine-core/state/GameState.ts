@@ -364,7 +364,7 @@ export function createInitialState(players: readonly TeamId[], units: readonly U
   }
 
   const unitMap = units.reduce<Record<UnitId, UnitState>>((acc, unit) => {
-    acc[unit.id] = unit;
+    acc[unit.id] = cloneUnitState(unit);
     return acc;
   }, {});
 
@@ -385,6 +385,16 @@ export function createInitialState(players: readonly TeamId[], units: readonly U
     matchStatus: 'IN_PROGRESS',
     winnerTeamId: undefined,
     isDraw: false,
+  };
+}
+
+function cloneUnitState(unit: UnitState): UnitState {
+  return {
+    ...unit,
+    position: unit.position ? { ...unit.position } : undefined,
+    spatialRef: unit.spatialRef ? { ...unit.spatialRef } : undefined,
+    cooldowns: unit.cooldowns ? { ...unit.cooldowns } : undefined,
+    activeEffects: unit.activeEffects?.map((effect) => ({ ...effect })),
   };
 }
 

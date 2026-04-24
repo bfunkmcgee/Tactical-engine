@@ -23,6 +23,16 @@ import {
 
 const EXAMPLE_MAP_ID = 'example_arena';
 const EXAMPLE_PLAYERS = ['alliance', 'raiders'] as const;
+type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer U)[]
+    ? ReadonlyArray<DeepReadonly<U>>
+    : T extends object
+      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+      : T;
+
+type RuntimeUnitState = DeepReadonly<UnitState>;
+type RuntimeUnitList = ReadonlyArray<RuntimeUnitState>;
 
 export const EXAMPLE_SCENARIO_ID = 'example-skirmish';
 
@@ -36,7 +46,7 @@ export const EXAMPLE_SCENARIO_METADATA: ScenarioRuntimeMetadata = {
   },
 };
 
-const EXAMPLE_UNITS: readonly UnitState[] = [
+const EXAMPLE_UNITS: RuntimeUnitList = [
   {
     id: 'alliance-1',
     definitionId: 'alliance_infantry',
@@ -138,18 +148,61 @@ export function createExampleScenarioRuntime(options: ExampleScenarioRuntimeOpti
     defaultAttackAbilityId: 'rifle_shot',
   });
 
+  const metadata = deepFreeze(cloneScenarioMetadata(EXAMPLE_SCENARIO_METADATA));
+  const players = deepFreeze([...EXAMPLE_PLAYERS]);
+  const units = deepFreeze(cloneUnits(EXAMPLE_UNITS));
+
   return {
     ...createScenarioRuntime({
-      metadata: EXAMPLE_SCENARIO_METADATA,
+      metadata,
       mapId: EXAMPLE_MAP_ID,
-      players: [...EXAMPLE_PLAYERS],
-      units: [...EXAMPLE_UNITS],
+      players,
+      units,
       engine: new Engine({
         actionResolver,
         matchOutcomeEvaluator,
       }),
-      createInitialState: () => createInitialState(EXAMPLE_PLAYERS, EXAMPLE_UNITS),
+      createInitialState: () => createInitialState(players, units),
     }),
     ruleSet,
   };
+}
+
+function cloneUnits(units: RuntimeUnitList): UnitState[] {
+  return units.map(cloneUnit);
+}
+
+function cloneUnit(unit: RuntimeUnitState): UnitState {
+  return {
+    ...unit,
+    position: unit.position ? { ...unit.position } : undefined,
+    spatialRef: unit.spatialRef ? { ...unit.spatialRef } : undefined,
+    cooldowns: unit.cooldowns ? { ...unit.cooldowns } : undefined,
+    activeEffects: unit.activeEffects?.map((effect) => ({ ...effect })),
+  };
+}
+
+function cloneScenarioMetadata(metadata: ScenarioRuntimeMetadata): ScenarioRuntimeMetadata {
+  return {
+    ...metadata,
+    teamColors: metadata.teamColors ? { ...metadata.teamColors } : undefined,
+  };
+}
+
+function deepFreeze<T>(value: T): DeepReadonly<T> {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      deepFreeze(item);
+    }
+    return Object.freeze(value) as DeepReadonly<T>;
+  }
+
+  if (value && typeof value === 'object') {
+    for (const nested of Object.values(value)) {
+      deepFreeze(nested);
+    }
+    return Object.freeze(value) as DeepReadonly<T>;
+  }
+
+  return value as DeepReadonly<T>;
 }
