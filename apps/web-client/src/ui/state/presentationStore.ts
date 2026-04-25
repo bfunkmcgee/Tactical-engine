@@ -28,6 +28,9 @@ export type PresentationStoreScenarioAdapter = {
       readonly field: string;
       readonly reason: string;
     }[];
+    readonly cause?: string;
+    readonly errorName?: string;
+    readonly stackSnippet?: string;
   };
 };
 
@@ -43,13 +46,66 @@ export function createPresentationStoreScenarioAdapter(options?: {
     };
   } catch (error) {
     const diagnostics = isDiagnosticError(error) ? error.diagnostics : undefined;
+    const safeErrorDetails = toSafeErrorDetails(error);
     return {
       initializationError: {
-        message: `Unable to initialize scenario '${scenarioId}'.`,
+        message: safeErrorDetails.message
+          ? `Unable to initialize scenario '${scenarioId}'. ${safeErrorDetails.message}`
+          : `Unable to initialize scenario '${scenarioId}'.`,
         diagnostics,
+        cause: safeErrorDetails.cause,
+        errorName: safeErrorDetails.errorName,
+        stackSnippet: safeErrorDetails.stackSnippet,
       },
     };
   }
+}
+
+function toSafeErrorDetails(error: unknown): {
+  readonly message?: string;
+  readonly cause?: string;
+  readonly errorName?: string;
+  readonly stackSnippet?: string;
+} {
+  if (error instanceof Error) {
+    const stackSnippet = error.stack?.split('\n').slice(0, 3).join('\n');
+    return {
+      message: error.message || undefined,
+      cause: stringifyCause(error.cause),
+      errorName: error.name || undefined,
+      stackSnippet: stackSnippet || undefined,
+    };
+  }
+
+  if (typeof error === 'string' && error.trim().length > 0) {
+    return {
+      message: error,
+      cause: error,
+      errorName: 'NonErrorThrown',
+    };
+  }
+
+  if (error && typeof error === 'object') {
+    return {
+      cause: 'A non-Error object was thrown.',
+      errorName: (error as { constructor?: { name?: string } }).constructor?.name ?? 'NonErrorThrown',
+    };
+  }
+
+  return {};
+}
+
+function stringifyCause(cause: unknown): string | undefined {
+  if (cause instanceof Error) {
+    return cause.message || cause.name || undefined;
+  }
+  if (typeof cause === 'string') {
+    return cause;
+  }
+  if (typeof cause === 'number' || typeof cause === 'boolean' || typeof cause === 'bigint') {
+    return String(cause);
+  }
+  return undefined;
 }
 
 function isDiagnosticError(error: unknown): error is {

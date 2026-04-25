@@ -78,7 +78,34 @@ test('adapter surfaces scenario initialization diagnostics from runtime factory 
   });
 
   assert.equal(adapter.scenarioRuntime, undefined);
-  assert.equal(adapter.initializationError?.message, `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'.`);
+  assert.equal(
+    adapter.initializationError?.message,
+    `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'. bad scenario`,
+  );
   assert.equal(adapter.initializationError?.diagnostics?.[0]?.source, 'games/example-skirmish/content/units.json');
   assert.match(adapter.initializationError?.diagnostics?.[0]?.reason ?? '', /missing_ability/u);
+  assert.equal(adapter.initializationError?.errorName, 'Error');
+  assert.match(adapter.initializationError?.stackSnippet ?? '', /Error: bad scenario/u);
+});
+
+test('adapter preserves non-diagnostic error details from runtime factory errors', () => {
+  const registry = createScenarioRuntimeRegistry({
+    [DEFAULT_SCENARIO_ID]: () => {
+      throw new TypeError('runtime exploded');
+    },
+  });
+
+  const adapter = createPresentationStoreScenarioAdapter({
+    scenarioId: DEFAULT_SCENARIO_ID,
+    registry,
+  });
+
+  assert.equal(adapter.scenarioRuntime, undefined);
+  assert.equal(
+    adapter.initializationError?.message,
+    `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'. runtime exploded`,
+  );
+  assert.equal(adapter.initializationError?.diagnostics, undefined);
+  assert.equal(adapter.initializationError?.errorName, 'TypeError');
+  assert.match(adapter.initializationError?.stackSnippet ?? '', /TypeError: runtime exploded/u);
 });
