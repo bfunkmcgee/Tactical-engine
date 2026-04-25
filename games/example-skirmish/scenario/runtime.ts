@@ -23,16 +23,8 @@ import {
 
 const EXAMPLE_MAP_ID = 'example_arena';
 const EXAMPLE_PLAYERS = ['alliance', 'raiders'] as const;
-type DeepReadonly<T> = T extends (...args: never[]) => unknown
-  ? T
-  : T extends readonly (infer U)[]
-    ? ReadonlyArray<DeepReadonly<U>>
-    : T extends object
-      ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
-      : T;
-
-type RuntimeUnitState = DeepReadonly<UnitState>;
-type RuntimeUnitList = ReadonlyArray<RuntimeUnitState>;
+type RuntimePlayerList = ReadonlyArray<string>;
+type RuntimeUnitList = ReadonlyArray<Readonly<UnitState>>;
 
 export const EXAMPLE_SCENARIO_ID = 'example-skirmish';
 
@@ -148,9 +140,9 @@ export function createExampleScenarioRuntime(options: ExampleScenarioRuntimeOpti
     defaultAttackAbilityId: 'rifle_shot',
   });
 
-  const metadata = deepFreeze(cloneScenarioMetadata(EXAMPLE_SCENARIO_METADATA));
-  const players = deepFreeze([...EXAMPLE_PLAYERS]);
-  const units = deepFreeze(cloneUnits(EXAMPLE_UNITS));
+  const metadata = normalizeRuntimeMetadata(EXAMPLE_SCENARIO_METADATA);
+  const players = normalizeRuntimePlayers(EXAMPLE_PLAYERS);
+  const units = normalizeRuntimeUnits(EXAMPLE_UNITS);
 
   return {
     ...createScenarioRuntime({
@@ -168,11 +160,15 @@ export function createExampleScenarioRuntime(options: ExampleScenarioRuntimeOpti
   };
 }
 
-function cloneUnits(units: RuntimeUnitList): UnitState[] {
-  return units.map(cloneUnit);
+function normalizeRuntimePlayers(players: readonly string[]): RuntimePlayerList {
+  return deepFreeze([...players]);
 }
 
-function cloneUnit(unit: RuntimeUnitState): UnitState {
+function normalizeRuntimeUnits(units: RuntimeUnitList): RuntimeUnitList {
+  return deepFreeze(units.map(cloneUnit));
+}
+
+function cloneUnit(unit: Readonly<UnitState>): UnitState {
   return {
     ...unit,
     position: unit.position ? { ...unit.position } : undefined,
@@ -182,27 +178,27 @@ function cloneUnit(unit: RuntimeUnitState): UnitState {
   };
 }
 
-function cloneScenarioMetadata(metadata: ScenarioRuntimeMetadata): ScenarioRuntimeMetadata {
-  return {
+function normalizeRuntimeMetadata(metadata: ScenarioRuntimeMetadata): ScenarioRuntimeMetadata {
+  return deepFreeze({
     ...metadata,
     teamColors: metadata.teamColors ? { ...metadata.teamColors } : undefined,
-  };
+  });
 }
 
-function deepFreeze<T>(value: T): DeepReadonly<T> {
+function deepFreeze<T>(value: T): T {
   if (Array.isArray(value)) {
     for (const item of value) {
       deepFreeze(item);
     }
-    return Object.freeze(value) as DeepReadonly<T>;
+    return Object.freeze(value);
   }
 
   if (value && typeof value === 'object') {
     for (const nested of Object.values(value)) {
       deepFreeze(nested);
     }
-    return Object.freeze(value) as DeepReadonly<T>;
+    return Object.freeze(value);
   }
 
-  return value as DeepReadonly<T>;
+  return value;
 }

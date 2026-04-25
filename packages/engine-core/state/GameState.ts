@@ -394,7 +394,13 @@ function cloneUnitState(unit: UnitState): UnitState {
     position: unit.position ? { ...unit.position } : undefined,
     spatialRef: unit.spatialRef ? { ...unit.spatialRef } : undefined,
     cooldowns: unit.cooldowns ? { ...unit.cooldowns } : undefined,
-    activeEffects: unit.activeEffects?.map((effect) => ({ ...effect })),
+    activeEffects: unit.activeEffects?.map(cloneActiveEffect),
+  };
+}
+
+function cloneActiveEffect(effect: ActiveEffect): ActiveEffect {
+  return {
+    ...effect,
   };
 }
 
