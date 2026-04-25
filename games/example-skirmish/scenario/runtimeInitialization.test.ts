@@ -77,3 +77,30 @@ test('createExampleScenarioRuntime returns diagnostics for malformed map content
   assert.ok(diagnostics.some((diagnostic: { reason: string }) => diagnostic.reason.includes("missing tile 'unknown_tile'")));
   assert.ok(diagnostics.some((diagnostic: { reason: string }) => diagnostic.reason.includes('width*height entries')));
 });
+
+test('createExampleScenarioRuntime protects runtime players and units from external mutation', () => {
+  const runtime = createExampleScenarioRuntime();
+  const baseline = runtime.createInitialState();
+
+  const mutablePlayers = runtime.players as string[];
+  const mutableUnits = runtime.units as unknown as Array<{
+    hp: number;
+    position?: { x: number; y: number };
+  }>;
+
+  assert.throws(() => {
+    mutablePlayers.push('hijacked-team');
+  });
+  assert.throws(() => {
+    mutableUnits[0].hp = 1;
+  });
+  assert.throws(() => {
+    if (mutableUnits[0].position) {
+      mutableUnits[0].position.x = 99;
+    }
+  });
+
+  const nextState = runtime.createInitialState();
+  assert.deepEqual(nextState.players, baseline.players);
+  assert.deepEqual(nextState.units, baseline.units);
+});

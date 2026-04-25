@@ -284,3 +284,24 @@ test('reduceEvents accepts ACTION_REJECTED and preserves state fields', () => {
 
   assert.equal(next, state);
 });
+
+test('createInitialState defensively clones nested unit fields from input units', () => {
+  const unit = {
+    id: 'u-a',
+    ownerId: 'A',
+    hp: 10,
+    maxHp: 10,
+    position: { x: 1, y: 2 },
+    cooldowns: { dash: 2 },
+    activeEffects: [{ effectId: 'burn', duration: 3, stacks: 1 }],
+  };
+  const state = createInitialState(['A', 'B'], [unit]);
+
+  unit.position.x = 9;
+  unit.cooldowns.dash = 0;
+  unit.activeEffects[0].duration = 0;
+
+  assert.deepEqual(state.units['u-a']?.position, { x: 1, y: 2 });
+  assert.deepEqual(state.units['u-a']?.cooldowns, { dash: 2 });
+  assert.deepEqual(state.units['u-a']?.activeEffects, [{ effectId: 'burn', duration: 3, stacks: 1 }]);
+});
