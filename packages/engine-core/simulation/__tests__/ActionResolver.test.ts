@@ -170,3 +170,46 @@ test('ActionResolver generates legal USE_ITEM actions and emits ITEM_USED', () =
     ['ACTION_APPLIED', 'ITEM_USED'],
   );
 });
+
+test('ActionResolver generates legal APPLY_STATUS actions and emits STATUS_APPLIED', () => {
+  const state = createState();
+  const applyStatusAction = resolver.getLegalActions(state, 'A').find((action) => action.type === 'APPLY_STATUS');
+  assert.ok(applyStatusAction);
+  if (!applyStatusAction) {
+    return;
+  }
+
+  const result = resolver.applyAction(state, applyStatusAction);
+  assert.deepEqual(
+    result.events.map((event) => event.kind),
+    ['ACTION_APPLIED', 'STATUS_APPLIED'],
+  );
+});
+
+test('ActionResolver rejects APPLY_STATUS payload not present in legal actions', () => {
+  const state = createState();
+  const invalidApplyStatusAction: Action = {
+    id: 'apply-status:A:u-a:u-b:marked',
+    actorId: 'A',
+    type: 'APPLY_STATUS',
+    payload: { sourceUnitId: 'u-a', targetId: 'u-b', statusId: 'burning', duration: 1 },
+  };
+
+  const result = resolver.validateActionWithReason(state, invalidApplyStatusAction);
+  assert.equal(result.isValid, false);
+  assert.equal(result.reason, 'APPLY_STATUS_NOT_FOUND_IN_LEGAL_ACTIONS');
+});
+
+test('ActionResolver rejects APPLY_STATUS payload with invalid duration', () => {
+  const state = createState();
+  const invalidApplyStatusAction: Action = {
+    id: 'apply-status:A:u-a:u-b:marked',
+    actorId: 'A',
+    type: 'APPLY_STATUS',
+    payload: { sourceUnitId: 'u-a', targetId: 'u-b', statusId: 'marked', duration: 0 },
+  };
+
+  const result = resolver.validateActionWithReason(state, invalidApplyStatusAction);
+  assert.equal(result.isValid, false);
+  assert.equal(result.reason, 'APPLY_STATUS_PAYLOAD_INVALID');
+});
