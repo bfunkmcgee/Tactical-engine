@@ -13,7 +13,7 @@ import {
   EntityCombatStrategyAdapter,
   EntityTurnEconomyStrategyAdapter,
 } from '../../../engine-entities/systems/EngineAdapters';
-import type { ContentIndex, RuleSet } from '../../../rules-sdk/src';
+import type { ContentIndex, RuleSet } from 'rules-sdk';
 import { TurnManager } from '../TurnManager';
 
 function setupEntityStore(): EntityStore {
