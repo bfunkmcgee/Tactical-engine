@@ -1,5 +1,10 @@
-import type { ContentIndex, DamageResolution, RuleSet, VictoryResult } from 'rules-sdk';
-import type { ContentIndex, DamageResolution, ResolvedStatusApplication, RuleSet, VictoryResult } from '../../rules-sdk/src';
+import type {
+  ContentIndex,
+  DamageResolution,
+  ResolvedStatusApplication,
+  RuleSet,
+  VictoryResult,
+} from 'rules-sdk';
 import { toRuleEvaluationState, type Action, type GameState, type UnitState } from '../state/GameState';
 
 export interface RuleStatusApplication {
