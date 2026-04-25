@@ -9,7 +9,7 @@ import { type ScenarioRuntime, type ScenarioRuntimeRegistry } from 'rules-sdk';
 import {
   EXAMPLE_SCENARIO_ID,
   createExampleScenarioRuntimeRegistry,
-} from '../../../../../games/example-skirmish/scenario/registry';
+} from 'game-scenarios/runtime-registry';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
 import { isSameAction } from './actionIdentity';
 

@@ -11,6 +11,7 @@ export default defineConfig({
       'rules-sdk/hooks': fileURLToPath(new URL('../../packages/rules-sdk/hooks.ts', import.meta.url)),
       'engine-spatial': fileURLToPath(new URL('../../packages/engine-spatial/index.ts', import.meta.url)),
       'engine-entities': fileURLToPath(new URL('../../packages/engine-entities/index.ts', import.meta.url)),
+      'game-scenarios/runtime-registry': fileURLToPath(new URL('../../games/scenario-runtime-registry.ts', import.meta.url)),
     },
   },
   server: {

@@ -5,8 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGES_ROOT = path.join(REPO_ROOT, 'packages');
+const APPS_ROOT = path.join(REPO_ROOT, 'apps');
+const GAMES_ROOT = path.join(REPO_ROOT, 'games');
 const DEFAULT_SOURCE_FILES = ['apps/**/*.ts', 'apps/**/*.tsx', 'games/**/*.ts', 'packages/**/*.ts', 'packages/**/*.tsx'];
-const DEFAULT_EXCLUDES = ['**/node_modules/**', '**/.tmp-test-dist/**', '**/__tests__/**'];
+const DEFAULT_EXCLUDES = ['**/node_modules/**', '**/.tmp-test-dist/**', '**/__tests__/**', 'packages/**/fixtures/**'];
 const IMPORT_PATTERN = /from\s+['\"]([^'\"]+)['\"]/g;
 const VIOLATIONS = [];
 
@@ -34,19 +36,31 @@ function parseArgs(argv) {
   };
 }
 
-function getPackageRoot(candidatePath) {
+function getScopedRoot(candidatePath, scopeRoot) {
   const absolutePath = path.resolve(candidatePath);
-  const relativeToPackages = path.relative(PACKAGES_ROOT, absolutePath);
-  if (relativeToPackages.startsWith('..') || path.isAbsolute(relativeToPackages)) {
+  const relativeToScope = path.relative(scopeRoot, absolutePath);
+  if (relativeToScope.startsWith('..') || path.isAbsolute(relativeToScope)) {
     return null;
   }
 
-  const [packageName] = relativeToPackages.split(path.sep);
-  if (!packageName) {
+  const [scopeName] = relativeToScope.split(path.sep);
+  if (!scopeName) {
     return null;
   }
 
-  return path.join(PACKAGES_ROOT, packageName);
+  return path.join(scopeRoot, scopeName);
+}
+
+function getPackageRoot(candidatePath) {
+  return getScopedRoot(candidatePath, PACKAGES_ROOT);
+}
+
+function getAppRoot(candidatePath) {
+  return getScopedRoot(candidatePath, APPS_ROOT);
+}
+
+function getGameRoot(candidatePath) {
+  return getScopedRoot(candidatePath, GAMES_ROOT);
 }
 
 function resolveTargetPath(filePath, specifier) {
@@ -60,6 +74,7 @@ for (const pattern of sourceFiles) {
     const absoluteFilePath = path.resolve(REPO_ROOT, filePath);
     const source = readFileSync(filePath, 'utf8');
     const sourcePackageRoot = getPackageRoot(absoluteFilePath);
+    const sourceAppRoot = getAppRoot(absoluteFilePath);
     let match;
     while ((match = IMPORT_PATTERN.exec(source)) !== null) {
       const specifier = match[1];
@@ -71,17 +86,23 @@ for (const pattern of sourceFiles) {
       const targetPackageRoot = getPackageRoot(targetPath);
       if (targetPackageRoot && targetPackageRoot !== sourcePackageRoot) {
         VIOLATIONS.push(`${filePath}: ${specifier}`);
+        continue;
+      }
+
+      const targetGameRoot = getGameRoot(targetPath);
+      if (sourceAppRoot && targetGameRoot) {
+        VIOLATIONS.push(`${filePath}: ${specifier}`);
       }
     }
   }
 }
 
 if (VIOLATIONS.length > 0) {
-  console.error('Detected cross-package internal imports via relative paths. Use public package exports instead:');
+  console.error('Detected internal boundary violations via relative imports. Use package exports or aliases instead:');
   for (const violation of VIOLATIONS) {
     console.error(` - ${violation}`);
   }
   process.exit(1);
 }
 
-console.log('No cross-package internal imports found.');
+console.log('No internal boundary violations found.');
