@@ -28,6 +28,12 @@ const ACTION_PHASE_POLICIES: Readonly<Partial<Record<ActionType, Partial<Record<
   },
 };
 
+const NO_ALIVE_UNIT_SLOT: ActivationSlot = {
+  id: 'unit:none-alive',
+  entityId: 'none-alive',
+  label: 'No alive units',
+};
+
 export class TeamTurnScheduler implements TurnScheduler {
   public getInitialSlot(state: { readonly players: readonly string[] }): ActivationSlot {
     const firstActor = state.players[0];
@@ -77,6 +83,10 @@ export class UnitTurnScheduler implements TurnScheduler {
 
   public getNextSlot(state: SchedulerStateSnapshot, currentSlot: ActivationSlot): ActivationSlot {
     const aliveUnits = [...state.units].filter((unit) => unit.health > 0).sort((left, right) => left.id.localeCompare(right.id));
+    if (aliveUnits.length === 0) {
+      return NO_ALIVE_UNIT_SLOT;
+    }
+
     const currentIdx = aliveUnits.findIndex((unit) => unit.id === currentSlot.entityId);
     const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % aliveUnits.length;
     const nextUnit = aliveUnits[nextIdx];
@@ -181,6 +191,28 @@ export class TurnManager {
       const nextTurn = normalizedState.turn + 1;
       const evalState = toSchedulerStateSnapshot(normalizedState);
       const nextSlot = this.scheduler.getNextSlot(evalState, normalizedState.activeActivationSlot);
+      if (!this.scheduler.isSlotValid(evalState, nextSlot)) {
+        const integrityEvent = this.createIntegrityViolationEvent(
+          normalizedState,
+          'next_slot_valid',
+          `Cannot start next turn because scheduler returned an invalid slot "${nextSlot.entityId}".`,
+        );
+        const terminalEvent: GameEvent = {
+          kind: 'MATCH_ENDED',
+          isDraw: true,
+          turn: normalizedState.turn,
+          round: normalizedState.round,
+        };
+
+        events.push(integrityEvent, terminalEvent);
+        nextState = reduceEvents(nextState, [integrityEvent, terminalEvent]);
+
+        return {
+          state: appendEvents(nextState, events),
+          events,
+        };
+      }
+
       const wrapped = this.hasWrappedTurn(normalizedState.activeActivationSlot, nextSlot, normalizedState);
       const nextRound = wrapped ? normalizedState.round + 1 : normalizedState.round;
 
