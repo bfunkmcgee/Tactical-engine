@@ -1,6 +1,29 @@
 export type EntityId = string;
 
 export type ComponentData = object;
+export type CloneMode = 'deep' | 'shallow' | 'none';
+
+export interface EntityStoreClonePolicy {
+  /**
+   * Clone strategy used when persisting component values through upsert/set.
+   * Defaults to `deep`.
+   */
+  onWrite?: CloneMode;
+  /**
+   * Clone strategy used when returning component values through get calls.
+   * Defaults to `deep`.
+   */
+  onRead?: CloneMode;
+  /**
+   * Clone strategy used when setComponent provides the current value to updater.
+   * Defaults to the same mode as `onRead`.
+   */
+  onSetInput?: CloneMode;
+}
+
+export interface EntityStoreOptions {
+  clonePolicy?: EntityStoreClonePolicy;
+}
 
 /**
  * ECS-style entity/component store that relies on stable string IDs.
@@ -10,6 +33,16 @@ export type ComponentData = object;
 export class EntityStore {
   private entities = new Set<EntityId>();
   private componentStores = new Map<string, Map<EntityId, ComponentData>>();
+  private clonePolicy: Required<EntityStoreClonePolicy>;
+
+  constructor(options?: EntityStoreOptions) {
+    const readMode = options?.clonePolicy?.onRead ?? 'deep';
+    this.clonePolicy = {
+      onRead: readMode,
+      onWrite: options?.clonePolicy?.onWrite ?? 'deep',
+      onSetInput: options?.clonePolicy?.onSetInput ?? readMode,
+    };
+  }
 
   createEntity(entityId: EntityId): EntityId {
     if (this.entities.has(entityId)) {
@@ -45,7 +78,7 @@ export class EntityStore {
   ): void {
     this.assertEntity(entityId);
     const store = this.getOrCreateComponentStore(componentName);
-    store.set(entityId, structuredClone(data));
+    store.set(entityId, this.cloneValue(data, this.clonePolicy.onWrite));
   }
 
   getComponent<T extends ComponentData>(
@@ -53,7 +86,7 @@ export class EntityStore {
     entityId: EntityId,
   ): T | undefined {
     const data = this.componentStores.get(componentName)?.get(entityId);
-    return data ? (structuredClone(data) as T) : undefined;
+    return data ? (this.cloneValue(data, this.clonePolicy.onRead) as T) : undefined;
   }
 
   setComponent<T extends ComponentData>(
@@ -64,14 +97,16 @@ export class EntityStore {
     this.assertEntity(entityId);
     const store = this.getOrCreateComponentStore(componentName);
     const current = store.get(entityId) as T | undefined;
-    const next = updater(current ? (structuredClone(current) as T) : undefined);
+    const next = updater(
+      current ? (this.cloneValue(current, this.clonePolicy.onSetInput) as T) : undefined,
+    );
 
     if (next === undefined) {
       store.delete(entityId);
       return;
     }
 
-    store.set(entityId, structuredClone(next));
+    store.set(entityId, this.cloneValue(next, this.clonePolicy.onWrite));
   }
 
   removeComponent(componentName: string, entityId: EntityId): void {
@@ -100,7 +135,26 @@ export class EntityStore {
 
     return [...store.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([entityId, data]) => ({ entityId, data: structuredClone(data) as T }));
+      .map(([entityId, data]) => ({
+        entityId,
+        data: this.cloneValue(data, this.clonePolicy.onRead) as T,
+      }));
+  }
+
+  private cloneValue<T extends ComponentData>(value: T, mode: CloneMode): T {
+    if (mode === 'none') {
+      return value;
+    }
+
+    if (mode === 'shallow') {
+      if (Array.isArray(value)) {
+        return [...value] as T;
+      }
+
+      return { ...value } as T;
+    }
+
+    return structuredClone(value);
   }
 
   private getOrCreateComponentStore(componentName: string): Map<EntityId, ComponentData> {
