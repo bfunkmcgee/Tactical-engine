@@ -40,6 +40,9 @@
       ],
       "engine-entities": [
         "../../packages/engine-entities/index.ts"
+      ],
+      "game-scenarios/runtime-registry": [
+        "../../games/scenario-runtime-registry.ts"
       ]
     }
   },
