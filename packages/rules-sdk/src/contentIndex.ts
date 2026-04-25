@@ -5,38 +5,40 @@ import type {
   MapDefinition,
   TileDefinition,
   UnitDefinition,
-} from "./ContentPack";
+} from './ContentPack';
 
-type ById<T extends { id: string }> = Record<string, T>;
+export type ById<T extends { id: string }> = Readonly<Record<string, Readonly<T>>>;
 
-function toById<T extends { id: string }>(kind: string, items: T[]): ById<T> {
+function toById<T extends { id: string }>(kind: string, items: readonly T[]): ById<T> {
   const seen = new Set<string>();
 
-  return items.reduce<ById<T>>((acc, item) => {
+  const byId = items.reduce<Record<string, Readonly<T>>>((acc, item) => {
     if (seen.has(item.id)) {
       throw new Error(`Duplicate ${kind} id detected in content pack: ${item.id}`);
     }
 
     seen.add(item.id);
-    acc[item.id] = item;
+    acc[item.id] = Object.freeze({ ...item });
     return acc;
   }, {});
+
+  return Object.freeze(byId);
 }
 
 export interface ContentIndex {
-  units: ById<UnitDefinition>;
-  abilities: ById<AbilityDefinition>;
-  tiles: ById<TileDefinition>;
-  maps: ById<MapDefinition>;
-  factions: ById<FactionDefinition>;
+  readonly units: ById<UnitDefinition>;
+  readonly abilities: ById<AbilityDefinition>;
+  readonly tiles: ById<TileDefinition>;
+  readonly maps: ById<MapDefinition>;
+  readonly factions: ById<FactionDefinition>;
 }
 
 export function createContentIndex(pack: ContentPack): ContentIndex {
-  return {
-    units: toById("unit", pack.units),
-    abilities: toById("ability", pack.abilities),
-    tiles: toById("tile", pack.tiles),
-    maps: toById("map", pack.maps),
-    factions: toById("faction", pack.factions),
-  };
+  return Object.freeze({
+    units: toById('unit', pack.units),
+    abilities: toById('ability', pack.abilities),
+    tiles: toById('tile', pack.tiles),
+    maps: toById('map', pack.maps),
+    factions: toById('faction', pack.factions),
+  });
 }
