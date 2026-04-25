@@ -62,6 +62,19 @@ function validateNumber(value: unknown, path: string, issues: ValidationIssue[],
   return true;
 }
 
+function validateInteger(value: unknown, path: string, issues: ValidationIssue[], minimum = 0): value is number {
+  if (!validateNumber(value, path, issues, minimum)) {
+    return false;
+  }
+
+  if (!Number.isInteger(value)) {
+    issues.push({ path, message: `must be an integer >= ${minimum}` });
+    return false;
+  }
+
+  return true;
+}
+
 function validateCollectionIds<T extends { id: string }>(
   items: T[],
   collectionPath: string,
@@ -188,6 +201,54 @@ export function validateContentPack(content: unknown, sourceLabel = 'content pac
 
       if (ability.areaOfEffect.radius !== undefined) {
         validateNumber(ability.areaOfEffect.radius, `${path}.areaOfEffect.radius`, issues, 0);
+      }
+    }
+
+    if (ability.cost !== undefined) {
+      if (!isObject(ability.cost)) {
+        issues.push({ path: `${path}.cost`, message: 'must be an object' });
+      } else {
+        if (ability.cost.actionPoints !== undefined) {
+          validateNumber(ability.cost.actionPoints, `${path}.cost.actionPoints`, issues, 0);
+        }
+        if (ability.cost.health !== undefined) {
+          validateNumber(ability.cost.health, `${path}.cost.health`, issues, 0);
+        }
+      }
+    }
+
+    if (ability.cooldownTurns !== undefined) {
+      validateInteger(ability.cooldownTurns, `${path}.cooldownTurns`, issues, 0);
+    }
+
+    if (ability.statusApplications !== undefined) {
+      if (!Array.isArray(ability.statusApplications)) {
+        issues.push({ path: `${path}.statusApplications`, message: 'must be an array' });
+      } else {
+        ability.statusApplications.forEach((statusApplication, statusIndex) => {
+          const statusPath = `${path}.statusApplications[${statusIndex}]`;
+          if (!isObject(statusApplication)) {
+            issues.push({ path: statusPath, message: 'must be an object' });
+            return;
+          }
+
+          validateNonEmptyString(statusApplication.statusId, `${statusPath}.statusId`, issues);
+
+          if (statusApplication.chance !== undefined) {
+            const chancePath = `${statusPath}.chance`;
+            if (validateNumber(statusApplication.chance, chancePath, issues, 0) && statusApplication.chance > 1) {
+              issues.push({ path: chancePath, message: 'must be a number <= 1' });
+            }
+          }
+
+          if (statusApplication.durationTurns !== undefined) {
+            validateInteger(statusApplication.durationTurns, `${statusPath}.durationTurns`, issues, 1);
+          }
+
+          if (statusApplication.stacks !== undefined) {
+            validateInteger(statusApplication.stacks, `${statusPath}.stacks`, issues, 1);
+          }
+        });
       }
     }
 
