@@ -104,3 +104,26 @@ test('createExampleScenarioRuntime protects runtime players and units from exter
   assert.deepEqual(nextState.players, baseline.players);
   assert.deepEqual(nextState.units, baseline.units);
 });
+
+test('createExampleScenarioRuntime isolates future initializations from mutations to returned state', () => {
+  const runtime = createExampleScenarioRuntime();
+  const baseline = runtime.createInitialState();
+  const mutated = runtime.createInitialState() as unknown as {
+    players: string[];
+    units: Record<string, { hp: number; position?: { x: number; y: number } }>;
+  };
+
+  mutated.players.push('injected-team');
+  mutated.units['alliance-1'].hp = 1;
+  if (mutated.units['alliance-1'].position) {
+    mutated.units['alliance-1'].position.x = 99;
+  }
+
+  const nextState = runtime.createInitialState();
+  const started = runtime.engine.initialize(nextState).state;
+
+  assert.deepEqual(nextState.players, baseline.players);
+  assert.deepEqual(nextState.units, baseline.units);
+  assert.deepEqual(started.players, baseline.players);
+  assert.deepEqual(started.units, baseline.units);
+});

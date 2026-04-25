@@ -292,16 +292,19 @@ test('createInitialState defensively clones nested unit fields from input units'
     hp: 10,
     maxHp: 10,
     position: { x: 1, y: 2 },
+    spatialRef: { q: 4, r: 5 },
     cooldowns: { dash: 2 },
     activeEffects: [{ effectId: 'burn', duration: 3, stacks: 1 }],
   };
   const state = createInitialState(['A', 'B'], [unit]);
 
   unit.position.x = 9;
+  unit.spatialRef.q = 12;
   unit.cooldowns.dash = 0;
   unit.activeEffects[0].duration = 0;
 
   assert.deepEqual(state.units['u-a']?.position, { x: 1, y: 2 });
+  assert.deepEqual(state.units['u-a']?.spatialRef, { q: 4, r: 5 });
   assert.deepEqual(state.units['u-a']?.cooldowns, { dash: 2 });
   assert.deepEqual(state.units['u-a']?.activeEffects, [{ effectId: 'burn', duration: 3, stacks: 1 }]);
 });
