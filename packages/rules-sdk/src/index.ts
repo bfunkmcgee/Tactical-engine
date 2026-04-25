@@ -6,7 +6,6 @@ export * from './contentPackValidation';
 export * from './RuleSet';
 export * from './hooks';
 export * from './scenarioRuntime';
-export * from './scenarioRegistry';
 export type {
   ActionPayload,
   ActionType,
