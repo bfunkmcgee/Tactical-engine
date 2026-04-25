@@ -97,6 +97,51 @@ test('TurnManager supports unit-turn scheduler variant', () => {
   assert.equal(result.state.activeActivationSlot.teamId, 'B');
 });
 
+test('UnitTurnScheduler transition ends match when no alive units remain', () => {
+  const unitManager = new TurnManager(new UnitTurnScheduler());
+  const state = createState({
+    phase: 'END_TURN',
+    turn: 3,
+    round: 2,
+    activeActivationSlot: { id: 'unit:u-a', entityId: 'u-a', teamId: 'A' },
+    units: {
+      'u-a': { id: 'u-a', ownerId: 'A', hp: 0, maxHp: 5 },
+      'u-b': { id: 'u-b', ownerId: 'B', hp: 0, maxHp: 5 },
+    },
+  });
+
+  const result = unitManager.advancePhaseWithEvents(state);
+
+  assert.deepEqual(result.events.map((event) => event.kind), ['PHASE_ADVANCED', 'INTEGRITY_VIOLATION', 'MATCH_ENDED']);
+  assert.equal(result.state.matchStatus, 'ENDED');
+  assert.equal(result.state.isDraw, true);
+  assert.equal(result.state.turn, 3);
+  assert.equal(result.state.round, 2);
+});
+
+test('UnitTurnScheduler empty-alive transition is terminal and does not loop turns', () => {
+  const unitManager = new TurnManager(new UnitTurnScheduler());
+  const state = createState({
+    phase: 'END_TURN',
+    turn: 7,
+    round: 4,
+    activeActivationSlot: { id: 'unit:u-a', entityId: 'u-a', teamId: 'A' },
+    units: {
+      'u-a': { id: 'u-a', ownerId: 'A', hp: 0, maxHp: 5 },
+      'u-b': { id: 'u-b', ownerId: 'B', hp: 0, maxHp: 5 },
+    },
+  });
+
+  const first = unitManager.advancePhaseWithEvents(state);
+  const second = unitManager.advancePhaseWithEvents(first.state);
+
+  assert.equal(first.state.matchStatus, 'ENDED');
+  assert.equal(first.events.some((event) => event.kind === 'TURN_STARTED'), false);
+  assert.equal(second.events.some((event) => event.kind === 'TURN_STARTED'), false);
+  assert.equal(second.state.turn, first.state.turn);
+  assert.equal(second.state.round, first.state.round);
+});
+
 test('TurnManager builds END_COMMAND flow with turn-start boundary', () => {
   const flow = manager.getActionPhaseFlow('END_COMMAND', 'COMMAND');
   assert.deepEqual(
