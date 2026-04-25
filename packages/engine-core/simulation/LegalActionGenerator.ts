@@ -73,12 +73,32 @@ export class DemoLegalActionGenerator implements LegalActionGenerator {
               },
             ]
           : [];
+        const firstAttackTargetId =
+          attackActions.length > 0 ? ((attackActions[0]?.payload as { targetId?: string })?.targetId ?? undefined) : undefined;
+
+        const applyStatusActions: Action[] =
+          actorUnit && firstAttackTargetId
+            ? [
+                {
+                  id: `apply-status:${actorId}:${actorUnit.id}:${firstAttackTargetId}:marked`,
+                  actorId,
+                  type: 'APPLY_STATUS',
+                  payload: {
+                    sourceUnitId: actorUnit.id,
+                    targetId: firstAttackTargetId,
+                    statusId: 'marked',
+                    duration: 1,
+                  },
+                },
+              ]
+            : [];
 
         return [
           ...attackActions,
           ...moveActions,
           ...useAbilityActions,
           ...useItemActions,
+          ...applyStatusActions,
           {
             id: `end-command:${actorId}`,
             actorId,
@@ -155,8 +175,9 @@ export class RulesetLegalActionGenerator implements LegalActionGenerator {
     const moveActions = this.generateMoveActions(state, actorId, actorUnit, battleState);
     const attackActions = this.generateAttackActions(state, actorId, actorUnit, battleState);
     const abilityActions = this.generateAbilityActions(state, actorId, actorUnit, battleState);
+    const applyStatusActions = this.generateApplyStatusActions(actorId, actorUnit, attackActions);
 
-    return [...moveActions, ...attackActions, ...abilityActions, this.createEndCommandAction(actorId)];
+    return [...moveActions, ...attackActions, ...abilityActions, ...applyStatusActions, this.createEndCommandAction(actorId)];
   }
 
   private generateMoveActions(
@@ -295,6 +316,34 @@ export class RulesetLegalActionGenerator implements LegalActionGenerator {
           cooldown: ability.cooldownTurns,
         },
       }));
+    });
+  }
+
+  private generateApplyStatusActions(actorId: string, actorUnit: UnitState, attackActions: readonly Action[]): Action[] {
+    return attackActions.flatMap((action) => {
+      if (action.type !== 'ATTACK' || typeof action.payload !== 'object' || action.payload === null) {
+        return [];
+      }
+
+      const targetId =
+        'targetId' in action.payload && typeof action.payload.targetId === 'string' ? action.payload.targetId : undefined;
+      if (!targetId) {
+        return [];
+      }
+
+      return [
+        {
+          id: `rule-apply-status:${actorId}:${actorUnit.id}:${targetId}:marked`,
+          actorId,
+          type: 'APPLY_STATUS' as const,
+          payload: {
+            sourceUnitId: actorUnit.id,
+            targetId,
+            statusId: 'marked',
+            duration: 1,
+          },
+        },
+      ];
     });
   }
 

@@ -97,7 +97,8 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
         event.action.type === 'PASS' ||
         event.action.type === 'MOVE' ||
         event.action.type === 'USE_ABILITY' ||
-        event.action.type === 'USE_ITEM'
+        event.action.type === 'USE_ITEM' ||
+        event.action.type === 'APPLY_STATUS'
       ) {
         return {
           ...state,

@@ -56,6 +56,13 @@ interface UseItemCandidatePayload {
   readonly cooldown?: number;
 }
 
+interface ApplyStatusCandidatePayload {
+  readonly sourceUnitId?: string;
+  readonly targetId: string;
+  readonly statusId: string;
+  readonly duration: number;
+}
+
 interface ActionResolutionContext {
   readonly state: GameState;
   readonly action: Action;
@@ -75,6 +82,7 @@ const PASS_PAYLOAD_KEYS: readonly string[] = ['phase'];
 const MOVE_PAYLOAD_KEYS: readonly string[] = ['unitId', 'to', 'actionPointCost'];
 const USE_ABILITY_PAYLOAD_KEYS: readonly string[] = ['unitId', 'abilityId', 'targetId', 'actionPointCost', 'cooldown'];
 const USE_ITEM_PAYLOAD_KEYS: readonly string[] = ['unitId', 'itemId', 'targetId', 'actionPointCost', 'cooldown'];
+const APPLY_STATUS_PAYLOAD_KEYS: readonly string[] = ['sourceUnitId', 'targetId', 'statusId', 'duration'];
 const DEFAULT_ATTACK_RANGE = 3;
 
 export class ActionResolver {
@@ -139,6 +147,8 @@ export class ActionResolver {
         return this.validateUseAbilityAction(state, action, legalActions.filter((candidate) => candidate.type === 'USE_ABILITY'));
       case 'USE_ITEM':
         return this.validateUseItemAction(action, legalActions.filter((candidate) => candidate.type === 'USE_ITEM'));
+      case 'APPLY_STATUS':
+        return this.validateApplyStatusAction(state, action, legalActions.filter((candidate) => candidate.type === 'APPLY_STATUS'));
       case 'PASS':
         return this.validatePassAction(action, legalActions.filter((candidate) => candidate.type === 'PASS'));
       default:
@@ -531,6 +541,42 @@ export class ActionResolver {
     return hasMatch ? { isValid: true } : { isValid: false, reason: 'USE_ITEM_NOT_FOUND_IN_LEGAL_ACTIONS' };
   }
 
+  private validateApplyStatusAction(state: GameState, action: Action, legalActions: Action[]): ActionValidationResult {
+    if (legalActions.length === 0) {
+      return { isValid: false, reason: 'APPLY_STATUS_NOT_LEGAL_IN_PHASE' };
+    }
+
+    const payload = this.toRecord(action.payload);
+    if (!payload) {
+      return { isValid: false, reason: 'INVALID_APPLY_STATUS_PAYLOAD_TYPE' };
+    }
+
+    const keyValidation = this.validateAllowedKeys(payload, APPLY_STATUS_PAYLOAD_KEYS);
+    if (!keyValidation.isValid) {
+      return keyValidation;
+    }
+
+    const normalized = this.toApplyStatusCandidatePayload(action.payload);
+    if (!normalized) {
+      return { isValid: false, reason: 'APPLY_STATUS_PAYLOAD_INVALID' };
+    }
+
+    const targetUnit = state.units[normalized.targetId];
+    if (!targetUnit || targetUnit.hp <= 0) {
+      return { isValid: false, reason: 'APPLY_STATUS_TARGET_NOT_ALIVE', details: { targetId: normalized.targetId } };
+    }
+
+    const hasMatch = legalActions.some(
+      (candidate) =>
+        candidate.id === action.id &&
+        candidate.actorId === action.actorId &&
+        candidate.type === 'APPLY_STATUS' &&
+        this.applyStatusPayloadEquals(candidate.payload, normalized),
+    );
+
+    return hasMatch ? { isValid: true } : { isValid: false, reason: 'APPLY_STATUS_NOT_FOUND_IN_LEGAL_ACTIONS' };
+  }
+
   private validateAllowedKeys(
     payload: Record<string, unknown>,
     allowedKeys: readonly string[],
@@ -593,6 +639,17 @@ export class ActionResolver {
         normalized.targetId === candidate.targetId &&
         normalized.actionPointCost === candidate.actionPointCost &&
         normalized.cooldown === candidate.cooldown,
+    );
+  }
+
+  private applyStatusPayloadEquals(payload: Action['payload'], candidate: ApplyStatusCandidatePayload): boolean {
+    const normalized = this.toApplyStatusCandidatePayload(payload);
+    return Boolean(
+      normalized &&
+        normalized.sourceUnitId === candidate.sourceUnitId &&
+        normalized.targetId === candidate.targetId &&
+        normalized.statusId === candidate.statusId &&
+        normalized.duration === candidate.duration,
     );
   }
 
@@ -724,6 +781,29 @@ export class ActionResolver {
     };
   }
 
+  private toApplyStatusCandidatePayload(payload: Action['payload']): ApplyStatusCandidatePayload | undefined {
+    const record = this.toRecord(payload);
+    if (!record || typeof record.targetId !== 'string' || typeof record.statusId !== 'string') {
+      return undefined;
+    }
+
+    if (record.sourceUnitId !== undefined && typeof record.sourceUnitId !== 'string') {
+      return undefined;
+    }
+
+    const duration = record.duration === undefined ? 1 : this.toNonNegativeInteger(record.duration);
+    if (duration === undefined || duration <= 0) {
+      return undefined;
+    }
+
+    return {
+      sourceUnitId: typeof record.sourceUnitId === 'string' ? record.sourceUnitId : undefined,
+      targetId: record.targetId,
+      statusId: record.statusId,
+      duration,
+    };
+  }
+
   private stageIntentValidation(state: GameState, action: Action): ActionResolutionContext | undefined {
     if (!this.validateAction(state, action)) {
       return undefined;
@@ -750,6 +830,12 @@ export class ActionResolver {
     if (context.action.type === 'USE_ITEM') {
       const payload = this.toUseItemCandidatePayload(context.action.payload);
       context.targetUnit = payload?.targetId ? context.state.units[payload.targetId] : undefined;
+      return;
+    }
+
+    if (context.action.type === 'APPLY_STATUS') {
+      const payload = this.toApplyStatusCandidatePayload(context.action.payload);
+      context.targetUnit = payload ? context.state.units[payload.targetId] : undefined;
     }
   }
 
@@ -789,6 +875,24 @@ export class ActionResolver {
   }
 
   private stageEffectApplication(context: ActionResolutionContext): void {
+    if (context.action.type === 'APPLY_STATUS') {
+      const payload = this.toApplyStatusCandidatePayload(context.action.payload);
+      if (!payload) {
+        return;
+      }
+
+      context.events.push({
+        kind: 'STATUS_APPLIED',
+        sourceUnitId: payload.sourceUnitId,
+        targetId: payload.targetId,
+        statusId: payload.statusId,
+        duration: payload.duration,
+        turn: context.state.turn,
+        round: context.state.round,
+      });
+      return;
+    }
+
     if (context.action.type !== 'ATTACK') {
       return;
     }
