@@ -1,3 +1,3 @@
-import type { RuleSet } from '../../../rules-sdk/src/RuleSet';
+import type { RuleSet } from 'rules-sdk';
 
 export const bad: RuleSet | null = null;
