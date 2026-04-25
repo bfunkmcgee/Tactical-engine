@@ -127,6 +127,20 @@ export class Engine {
       applyEvents(phaseAdvanceResult.events);
     }
 
+    if (nextState.matchStatus === 'IN_PROGRESS' && this.matchOutcomeEvaluator) {
+      const matchOutcome = this.matchOutcomeEvaluator.evaluate(nextState);
+      if (matchOutcome) {
+        const terminalEvent: GameEvent = {
+          kind: 'MATCH_ENDED',
+          winnerTeamId: matchOutcome.winnerTeamId,
+          isDraw: Boolean(matchOutcome.isDraw),
+          turn: nextState.turn,
+          round: nextState.round,
+        };
+        applyEvents([terminalEvent]);
+      }
+    }
+
     return {
       state: nextState,
       events: orderedEvents,

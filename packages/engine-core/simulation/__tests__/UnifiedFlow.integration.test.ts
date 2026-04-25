@@ -268,3 +268,39 @@ test('integration: engine.initialize applies turn-economy between TURN_STARTED a
   const startup = engine.initialize(createInitialState(['A', 'B'], []));
   assert.deepEqual(startup.events.map((event) => event.kind), ['TURN_STARTED', 'ACTION_POINTS_CHANGED', 'PHASE_ADVANCED']);
 });
+
+test('integration: engine.initialize appends MATCH_ENDED when startup state is terminal', () => {
+  const engine = new Engine({
+    matchOutcomeEvaluator: {
+      evaluate: () => ({ winnerTeamId: 'A', isDraw: false }),
+    },
+  });
+
+  const startup = engine.initialize(createInitialState(['A', 'B'], []));
+
+  assert.deepEqual(startup.events.map((event) => event.kind), ['TURN_STARTED', 'PHASE_ADVANCED', 'MATCH_ENDED']);
+  const terminalEvent = startup.events.at(-1);
+  assert.equal(terminalEvent?.kind, 'MATCH_ENDED');
+  if (terminalEvent?.kind === 'MATCH_ENDED') {
+    assert.equal(terminalEvent.winnerTeamId, 'A');
+    assert.equal(terminalEvent.isDraw, false);
+  }
+  assert.equal(startup.state.matchStatus, 'ENDED');
+  assert.equal(startup.state.winnerTeamId, 'A');
+  assert.equal(startup.state.isDraw, false);
+});
+
+test('integration: engine.initialize leaves match in progress when startup state is non-terminal', () => {
+  const engine = new Engine({
+    matchOutcomeEvaluator: {
+      evaluate: () => null,
+    },
+  });
+
+  const startup = engine.initialize(createInitialState(['A', 'B'], []));
+
+  assert.deepEqual(startup.events.map((event) => event.kind), ['TURN_STARTED', 'PHASE_ADVANCED']);
+  assert.equal(startup.state.matchStatus, 'IN_PROGRESS');
+  assert.equal(startup.state.winnerTeamId, undefined);
+  assert.equal(startup.state.isDraw, false);
+});
