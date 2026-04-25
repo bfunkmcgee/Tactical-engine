@@ -5,12 +5,11 @@ import {
   type Action,
   getActiveActorId,
 } from 'engine-core';
+import { type ScenarioRuntime, type ScenarioRuntimeRegistry } from 'rules-sdk';
 import {
   EXAMPLE_SCENARIO_ID,
-  createDefaultScenarioRuntimeRegistry,
-  type ScenarioRuntime,
-  type ScenarioRuntimeRegistry,
-} from 'rules-sdk';
+  createExampleScenarioRuntimeRegistry,
+} from '../../../../../games/example-skirmish/scenario/registry';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
 import { isSameAction } from './actionIdentity';
 
@@ -37,7 +36,7 @@ export function createPresentationStoreScenarioAdapter(options?: {
   readonly registry?: ScenarioRuntimeRegistry;
 }): PresentationStoreScenarioAdapter {
   const scenarioId = options?.scenarioId ?? DEFAULT_SCENARIO_ID;
-  const registry = options?.registry ?? createDefaultScenarioRuntimeRegistry();
+  const registry = options?.registry ?? createExampleScenarioRuntimeRegistry();
   try {
     return {
       scenarioRuntime: registry.create(scenarioId),
