@@ -9,6 +9,9 @@ import {
 } from 'engine-core';
 import {
   createScenarioRuntime,
+  ERROR_CATEGORIES,
+  ERROR_CODES,
+  RulesSdkError,
   type ScenarioRuntime,
   type ScenarioRuntimeMetadata,
 } from 'rules-sdk/scenario-runtime';
@@ -99,12 +102,18 @@ export type ExampleScenarioRuntimeOptions = {
   readonly contentPack?: ContentPack;
 };
 
-export class ExampleScenarioInitializationError extends Error {
+export class ExampleScenarioInitializationError extends RulesSdkError {
   readonly diagnostics: readonly ExampleScenarioValidationDiagnostic[];
 
-  constructor(diagnostics: readonly ExampleScenarioValidationDiagnostic[]) {
-    super('Example scenario failed to initialize due to invalid content.');
-    this.name = 'ExampleScenarioInitializationError';
+  constructor(diagnostics: readonly ExampleScenarioValidationDiagnostic[], cause?: unknown) {
+    super('Example scenario failed to initialize due to invalid content.', {
+      category: ERROR_CATEGORIES.RUNTIME_INIT,
+      code: ERROR_CODES.EXAMPLE_SCENARIO_INIT_FAILED,
+      metadata: {
+        issueCount: diagnostics.length,
+      },
+      cause,
+    });
     this.diagnostics = diagnostics;
   }
 }
@@ -116,7 +125,7 @@ export function createExampleScenarioRuntime(options: ExampleScenarioRuntimeOpti
     content = createValidatedExampleContent(options.contentPack);
   } catch (error) {
     if (error instanceof ExampleScenarioValidationError) {
-      throw new ExampleScenarioInitializationError(error.diagnostics);
+      throw new ExampleScenarioInitializationError(error.diagnostics, error);
     }
     throw error;
   }

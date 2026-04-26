@@ -7,6 +7,8 @@ export * from './contentIndex';
 /** @stability internal */
 export * from './contentPackValidation';
 /** @stability beta */
+export * from './errors';
+/** @stability beta */
 export * from './RuleSet';
 /** @stability beta */
 export * from './hooks';

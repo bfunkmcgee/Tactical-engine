@@ -1,4 +1,11 @@
 import type { Engine, GameState, UnitState } from 'engine-core';
+import {
+  ERROR_CATEGORIES,
+  ERROR_CODES,
+  RulesSdkError,
+  type ErrorMetadata,
+} from './errors';
+export { ERROR_CATEGORIES, ERROR_CODES, RulesSdkError, wrapUnknownError, type DiagnosticPayload, type ErrorCategory, type ErrorCode, type ErrorMetadata } from './errors';
 
 export interface ScenarioRuntimeMetadata {
   readonly id: string;
@@ -28,23 +35,30 @@ export type ScenarioRuntimeShape = Omit<ScenarioRuntime, 'metadata'> & {
 };
 
 export const SCENARIO_RUNTIME_ERROR_CODES = {
-  UNKNOWN_SCENARIO_ID: 'UNKNOWN_SCENARIO_ID',
-  FACTORY_FAILURE: 'SCENARIO_RUNTIME_FACTORY_FAILURE',
+  UNKNOWN_SCENARIO_ID: ERROR_CODES.SCENARIO_RUNTIME_UNKNOWN_ID,
+  FACTORY_FAILURE: ERROR_CODES.SCENARIO_RUNTIME_FACTORY_FAILURE,
 } as const;
 
 export type ScenarioRuntimeErrorCode =
   (typeof SCENARIO_RUNTIME_ERROR_CODES)[keyof typeof SCENARIO_RUNTIME_ERROR_CODES];
 
-abstract class ScenarioRuntimeError extends Error {
+abstract class ScenarioRuntimeError extends RulesSdkError {
   abstract readonly code: ScenarioRuntimeErrorCode;
   readonly scenarioId: string;
-  override readonly cause?: unknown;
 
-  protected constructor(message: string, scenarioId: string, cause?: unknown) {
-    super(message, cause === undefined ? undefined : { cause });
-    this.name = new.target.name;
+  protected constructor(message: string, scenarioId: string, category: (typeof ERROR_CATEGORIES)[keyof typeof ERROR_CATEGORIES], cause?: unknown, metadata?: ErrorMetadata) {
+    super(message, {
+      category,
+      code: new.target === UnknownScenarioRuntimeError
+        ? SCENARIO_RUNTIME_ERROR_CODES.UNKNOWN_SCENARIO_ID
+        : SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE,
+      metadata: {
+        ...metadata,
+        scenarioId,
+      },
+      cause,
+    });
     this.scenarioId = scenarioId;
-    this.cause = cause;
   }
 }
 
@@ -52,7 +66,7 @@ export class UnknownScenarioRuntimeError extends ScenarioRuntimeError {
   readonly code = SCENARIO_RUNTIME_ERROR_CODES.UNKNOWN_SCENARIO_ID;
 
   constructor(scenarioId: string) {
-    super(`Unknown scenario runtime: ${scenarioId}`, scenarioId);
+    super(`Unknown scenario runtime: ${scenarioId}`, scenarioId, ERROR_CATEGORIES.LEGALITY);
   }
 }
 
@@ -60,7 +74,23 @@ export class ScenarioRuntimeFactoryError extends ScenarioRuntimeError {
   readonly code = SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE;
 
   constructor(scenarioId: string, cause: unknown) {
-    super(`Scenario runtime factory failed: ${scenarioId}`, scenarioId, cause);
+    const wrappedErrorSummary =
+      cause instanceof Error
+        ? (cause.message || cause.name)
+        : typeof cause === 'string'
+          ? cause
+          : cause && typeof cause === 'object'
+            ? `[${(cause as { constructor?: { name?: string } }).constructor?.name ?? 'object'}]`
+            : undefined;
+    super(`Scenario runtime factory failed: ${scenarioId}`, scenarioId, ERROR_CATEGORIES.RUNTIME_INIT, cause, {
+      wrappedErrorType:
+        cause === null
+          ? 'null'
+          : Array.isArray(cause)
+            ? 'array'
+            : typeof cause,
+      wrappedErrorSummary,
+    });
   }
 }
 
