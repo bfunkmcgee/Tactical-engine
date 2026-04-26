@@ -35,6 +35,8 @@ export interface EngineOptions {
   readonly spatialStrategy?: SimulationStrategy;
   readonly legalActionGenerator?: LegalActionGenerator;
   readonly matchOutcomeEvaluator?: MatchOutcomeEvaluator;
+  readonly maxEventLogLength?: number;
+  readonly emitEventLogCompactionMarker?: boolean;
 }
 
 export class Engine {
@@ -46,6 +48,8 @@ export class Engine {
   private readonly spatialStrategy: SimulationStrategy;
   private readonly turnEconomyStrategy: TurnStartStrategy;
   private readonly matchOutcomeEvaluator?: MatchOutcomeEvaluator;
+  private readonly maxEventLogLength?: number;
+  private readonly emitEventLogCompactionMarker: boolean;
 
   constructor(options?: EngineOptions);
   constructor(
@@ -93,6 +97,8 @@ export class Engine {
     this.turnEconomyStrategy = normalizedOptions.turnEconomyStrategy ?? NOOP_TURN_START_STRATEGY;
     this.spatialStrategy = normalizedOptions.spatialStrategy ?? NOOP_STRATEGY;
     this.matchOutcomeEvaluator = normalizedOptions.matchOutcomeEvaluator;
+    this.maxEventLogLength = normalizedOptions.maxEventLogLength;
+    this.emitEventLogCompactionMarker = Boolean(normalizedOptions.emitEventLogCompactionMarker);
   }
 
   public applyAction(state: GameState, action: Action): StateTransitionResult {
@@ -113,7 +119,7 @@ export class Engine {
       }
 
       orderedEvents.push(...events);
-      nextState = appendEvents(reduceEvents(nextState, events), events);
+      nextState = this.appendToEventLog(reduceEvents(nextState, events), events);
     };
 
     const turnStartResult = this.turnManager.startTurnWithEvents(nextState);
@@ -156,7 +162,11 @@ export class Engine {
     // reuse that path to guarantee exactly one ACTION_REJECTED shape/reason contract.
     const validation = this.actionResolver.validateActionWithReason(state, command);
     if (!validation.isValid) {
-      return this.actionResolver.buildRejectedActionResult(state, command, validation);
+      const rejectionResult = this.actionResolver.buildRejectedActionResult(state, command, validation);
+      return {
+        state: this.appendToEventLog(rejectionResult.state, []),
+        events: rejectionResult.events,
+      };
     }
 
     const context: StrategyContext = { state, action: command };
@@ -178,7 +188,7 @@ export class Engine {
       }
 
       orderedEvents.push(...events);
-      nextState = appendEvents(reduceEvents(nextState, events), events);
+      nextState = this.appendToEventLog(reduceEvents(nextState, events), events);
     };
 
     applyEvents(initialEvents);
@@ -186,7 +196,7 @@ export class Engine {
     const transition = (): void => {
       const result = this.turnManager.advancePhaseWithEvents(nextState);
       orderedEvents.push(...result.events);
-      nextState = result.state;
+      nextState = this.appendToEventLog(result.state, []);
     };
 
     for (const step of this.turnManager.getActionPhaseFlow(command.type, state.phase)) {
@@ -225,6 +235,13 @@ export class Engine {
 
   public advancePhase(state: GameState): GameState {
     return this.turnManager.advancePhase(state);
+  }
+
+  private appendToEventLog(state: GameState, events: readonly GameEvent[]): GameState {
+    return appendEvents(state, events, {
+      maxEventLogLength: this.maxEventLogLength,
+      includeCompactionMarker: this.emitEventLogCompactionMarker,
+    });
   }
 }
 
