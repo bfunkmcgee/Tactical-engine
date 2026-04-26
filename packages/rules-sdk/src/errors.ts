@@ -35,6 +35,12 @@ type AppErrorShape = {
   readonly cause?: unknown;
 };
 
+type ErrorWithDetails = Error & {
+  readonly code?: unknown;
+  readonly category?: unknown;
+  readonly metadata?: unknown;
+};
+
 export class RulesSdkError extends Error {
   readonly category: ErrorCategory;
   readonly code: ErrorCode;
@@ -68,15 +74,43 @@ function summarizeUnknown(input: unknown): string | undefined {
   return undefined;
 }
 
+function toErrorCode(code: unknown): ErrorCode | undefined {
+  if (typeof code !== 'string') {
+    return undefined;
+  }
+  return Object.values(ERROR_CODES).includes(code as ErrorCode)
+    ? (code as ErrorCode)
+    : undefined;
+}
+
+function toErrorCategory(category: unknown): ErrorCategory | undefined {
+  if (typeof category !== 'string') {
+    return undefined;
+  }
+  return Object.values(ERROR_CATEGORIES).includes(category as ErrorCategory)
+    ? (category as ErrorCategory)
+    : undefined;
+}
+
 export function wrapUnknownError(error: unknown, details: Omit<AppErrorShape, 'cause'> & { readonly message: string }): RulesSdkError {
   if (error instanceof RulesSdkError) {
     return error;
   }
+
+  const wrappedError = error instanceof Error ? (error as ErrorWithDetails) : undefined;
+  const wrappedMetadata =
+    wrappedError && wrappedError.metadata && typeof wrappedError.metadata === 'object' && !Array.isArray(wrappedError.metadata)
+      ? (wrappedError.metadata as Record<string, unknown>)
+      : undefined;
+
   return new RulesSdkError(details.message, {
     category: details.category,
     code: details.code,
     metadata: {
       ...details.metadata,
+      wrappedErrorCode: toErrorCode(wrappedError?.code),
+      wrappedErrorCategory: toErrorCategory(wrappedError?.category),
+      wrappedErrorMetadata: wrappedMetadata,
       wrappedErrorSummary: summarizeUnknown(error),
       wrappedErrorType:
         error === null

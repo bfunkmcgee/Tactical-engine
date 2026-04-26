@@ -3,6 +3,7 @@ import {
   ERROR_CATEGORIES,
   ERROR_CODES,
   RulesSdkError,
+  wrapUnknownError,
   type ErrorMetadata,
 } from './errors';
 export { ERROR_CATEGORIES, ERROR_CODES, RulesSdkError, wrapUnknownError, type DiagnosticPayload, type ErrorCategory, type ErrorCode, type ErrorMetadata } from './errors';
@@ -74,22 +75,16 @@ export class ScenarioRuntimeFactoryError extends ScenarioRuntimeError {
   readonly code = SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE;
 
   constructor(scenarioId: string, cause: unknown) {
-    const wrappedErrorSummary =
-      cause instanceof Error
-        ? (cause.message || cause.name)
-        : typeof cause === 'string'
-          ? cause
-          : cause && typeof cause === 'object'
-            ? `[${(cause as { constructor?: { name?: string } }).constructor?.name ?? 'object'}]`
-            : undefined;
+    const wrappedCause = wrapUnknownError(cause, {
+      message: `Scenario runtime factory failed: ${scenarioId}`,
+      category: ERROR_CATEGORIES.RUNTIME_INIT,
+      code: ERROR_CODES.SCENARIO_RUNTIME_FACTORY_FAILURE,
+      metadata: {
+        scenarioId,
+      },
+    });
     super(`Scenario runtime factory failed: ${scenarioId}`, scenarioId, ERROR_CATEGORIES.RUNTIME_INIT, cause, {
-      wrappedErrorType:
-        cause === null
-          ? 'null'
-          : Array.isArray(cause)
-            ? 'array'
-            : typeof cause,
-      wrappedErrorSummary,
+      ...wrappedCause.metadata,
     });
   }
 }

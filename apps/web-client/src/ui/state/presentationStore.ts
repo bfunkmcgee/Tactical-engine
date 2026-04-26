@@ -8,8 +8,8 @@ import {
   type ScenarioRuntimeRegistry,
   SCENARIO_RUNTIME_ERROR_CODES,
   type ErrorCategory,
+  type ErrorCode,
   type ErrorMetadata,
-  type ScenarioRuntimeErrorCode,
 } from 'rules-sdk';
 import {
   EXAMPLE_SCENARIO_ID,
@@ -42,7 +42,7 @@ export type PresentationStoreScenarioAdapter = {
       readonly field: string;
       readonly reason: string;
     }[];
-    readonly code?: ScenarioRuntimeErrorCode;
+    readonly code?: ErrorCode;
     readonly category?: ErrorCategory;
     readonly metadata?: ErrorMetadata;
     readonly scenarioId?: string;
@@ -85,7 +85,7 @@ export function createPresentationStoreScenarioAdapter(options?: {
 
 function toSafeErrorDetails(error: unknown): {
   readonly message?: string;
-  readonly code?: ScenarioRuntimeErrorCode;
+  readonly code?: ErrorCode;
   readonly category?: ErrorCategory;
   readonly metadata?: ErrorMetadata;
   readonly scenarioId?: string;
@@ -95,7 +95,7 @@ function toSafeErrorDetails(error: unknown): {
 } {
   if (error instanceof Error) {
     const stackSnippet = error.stack?.split('\n').slice(0, 3).join('\n');
-    const code = toScenarioRuntimeErrorCode((error as { code?: unknown }).code);
+    const code = toErrorCode((error as { code?: unknown }).code);
     const category = toErrorCategory((error as { category?: unknown }).category);
     const metadata = toErrorMetadata((error as { metadata?: unknown }).metadata);
     const cause = stringifyCause(error.cause);
@@ -134,9 +134,9 @@ function toSafeErrorDetails(error: unknown): {
   return {};
 }
 
-function toScenarioRuntimeErrorCode(code: unknown): ScenarioRuntimeErrorCode | undefined {
-  if (code === SCENARIO_RUNTIME_ERROR_CODES.UNKNOWN_SCENARIO_ID || code === SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE) {
-    return code;
+function toErrorCode(code: unknown): ErrorCode | undefined {
+  if (typeof code === 'string' && code.startsWith('RULES_SDK_')) {
+    return code as ErrorCode;
   }
   return undefined;
 }

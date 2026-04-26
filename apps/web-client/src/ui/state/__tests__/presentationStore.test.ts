@@ -10,6 +10,8 @@ import {
   createScenarioRuntime,
   createScenarioRuntimeRegistry,
   ERROR_CATEGORIES,
+  ERROR_CODES,
+  RulesSdkError,
   SCENARIO_RUNTIME_ERROR_CODES,
   type ScenarioRuntime,
 } from 'rules-sdk';
@@ -182,4 +184,29 @@ test('adapter preserves wrapped metadata for unknown thrown objects', () => {
   assert.equal(adapter.initializationError?.category, ERROR_CATEGORIES.RUNTIME_INIT);
   assert.equal(adapter.initializationError?.metadata?.wrappedErrorType, 'object');
   assert.equal(adapter.initializationError?.metadata?.wrappedErrorSummary, '[Object]');
+});
+
+test('adapter preserves wrapped inner sdk error code metadata from scenario initialization failures', () => {
+  const registry = createScenarioRuntimeRegistry({
+    [DEFAULT_SCENARIO_ID]: () => {
+      throw new RulesSdkError('invalid example scenario', {
+        category: ERROR_CATEGORIES.RUNTIME_INIT,
+        code: ERROR_CODES.EXAMPLE_SCENARIO_INIT_FAILED,
+        metadata: {
+          issueCount: 3,
+        },
+      });
+    },
+  });
+
+  const adapter = createPresentationStoreScenarioAdapter({
+    scenarioId: DEFAULT_SCENARIO_ID,
+    registry,
+  });
+
+  assert.equal(adapter.scenarioRuntime, undefined);
+  assert.equal(adapter.initializationError?.code, SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE);
+  assert.equal(adapter.initializationError?.metadata?.wrappedErrorCode, ERROR_CODES.EXAMPLE_SCENARIO_INIT_FAILED);
+  assert.equal(adapter.initializationError?.metadata?.wrappedErrorCategory, ERROR_CATEGORIES.RUNTIME_INIT);
+  assert.deepEqual(adapter.initializationError?.metadata?.wrappedErrorMetadata, { issueCount: 3 });
 });
