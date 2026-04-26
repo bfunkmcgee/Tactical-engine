@@ -213,3 +213,27 @@ test('ActionResolver rejects APPLY_STATUS payload with invalid duration', () => 
   assert.equal(result.isValid, false);
   assert.equal(result.reason, 'APPLY_STATUS_PAYLOAD_INVALID');
 });
+
+test('ActionResolver preserves resource/effect ordering around ACTION_APPLIED', () => {
+  const state = {
+    ...createInitialState(
+      ['A', 'B'],
+      [
+        { id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10, actionPoints: 2, maxActionPoints: 2, position: { x: 0, y: 0 } },
+        { id: 'u-b', ownerId: 'B', hp: 10, maxHp: 10, position: { x: 1, y: 0 } },
+      ],
+    ),
+    phase: 'COMMAND' as const,
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
+  };
+
+  const action: Action = {
+    id: 'attack:A:u-b',
+    actorId: 'A',
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: 1 },
+  };
+
+  const result = resolver.applyAction(state, action);
+  assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED', 'ACTION_POINTS_CHANGED', 'UNIT_DAMAGED']);
+});
