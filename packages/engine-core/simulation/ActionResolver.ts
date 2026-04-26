@@ -68,7 +68,7 @@ export class ActionResolver {
       return this.buildRejectedActionResult(state, action, validation);
     }
 
-    const events = this.resolveActionEffects(state, action);
+    const events = this.resolveActionEffects(state, action, validation);
     const nextState = appendEvents(reduceEvents(state, events), events);
     return {
       state: nextState,
@@ -114,8 +114,9 @@ export class ActionResolver {
     }
   }
 
-  public resolveActionEffects(state: GameState, action: Action): GameEvent[] {
-    const context = this.stageIntentValidation(state, action);
+  public resolveActionEffects(state: GameState, action: Action, validation?: ActionValidationResult): GameEvent[] {
+    const resolvedValidation = validation ?? this.validateActionWithReason(state, action);
+    const context = this.stageIntentValidation(state, action, resolvedValidation);
     if (!context) {
       return [];
     }
@@ -402,8 +403,8 @@ export class ActionResolver {
       : { isValid: false, reason: 'APPLY_STATUS_NOT_FOUND_IN_LEGAL_ACTIONS' };
   }
 
-  private stageIntentValidation(state: GameState, action: Action): ActionResolutionContext | undefined {
-    if (!this.validateAction(state, action)) {
+  private stageIntentValidation(state: GameState, action: Action, validation: ActionValidationResult): ActionResolutionContext | undefined {
+    if (!validation.isValid) {
       return undefined;
     }
 

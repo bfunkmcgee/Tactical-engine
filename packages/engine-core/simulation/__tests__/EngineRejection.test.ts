@@ -3,6 +3,7 @@ import * as assert from 'node:assert/strict';
 
 import { Engine } from '../Engine';
 import { createInitialState, type Action } from '../../state/GameState';
+import type { LegalActionGenerator } from '../LegalActionGenerator';
 
 test('Engine.step emits exactly one stable rejection event per invalid command', () => {
   const state = {
@@ -40,4 +41,44 @@ test('Engine.step emits exactly one stable rejection event per invalid command',
     turn: 1,
     round: 1,
   });
+});
+
+test('Engine.step computes legal actions once per valid command', () => {
+  let legalActionCalls = 0;
+  const legalActionGenerator: LegalActionGenerator = {
+    getLegalActions: () => {
+      legalActionCalls += 1;
+      return [
+        {
+          id: 'attack:A:u-b',
+          actorId: 'A',
+          type: 'ATTACK',
+          payload: { targetId: 'u-b', amount: 1 },
+        },
+      ];
+    },
+  };
+  const state = {
+    ...createInitialState(
+      ['A', 'B'],
+      [
+        { id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10, position: { x: 0, y: 0 } },
+        { id: 'u-b', ownerId: 'B', hp: 10, maxHp: 10, position: { x: 1, y: 0 } },
+      ],
+    ),
+    phase: 'COMMAND' as const,
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
+  };
+  const engine = new Engine({ legalActionGenerator });
+  const attack: Action = {
+    id: 'attack:A:u-b',
+    actorId: 'A',
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: 1 },
+  };
+
+  const result = engine.step(state, attack);
+
+  assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED', 'UNIT_DAMAGED']);
+  assert.equal(legalActionCalls, 1);
 });
