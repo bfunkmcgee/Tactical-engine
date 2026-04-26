@@ -1,9 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   type GameEvent,
-  type GameState,
   type Action,
-  getActiveActorId,
 } from 'engine-core';
 import { type ScenarioRuntime, type ScenarioRuntimeRegistry } from 'rules-sdk';
 import {
@@ -11,9 +9,18 @@ import {
   createExampleScenarioRuntimeRegistry,
 } from 'game-scenarios/runtime-registry';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
-import { isSameAction } from './actionIdentity';
+import {
+  createEngineRuntimeAdapter,
+  type EngineRuntimeAdapter,
+} from '../../runtime/engineRuntimeAdapter';
+import {
+  createInitialStoreState,
+  reduceStoreForTriggeredAction,
+  type PresentationStoreState,
+} from './presentationStoreRuntime';
 
 export type { EngineSnapshot, Entity, ViewState, EngineActionView } from './engineSnapshot';
+export { createInitialStoreState, reduceStoreForTriggeredAction, type PresentationStoreState } from './presentationStoreRuntime';
 
 export const DEFAULT_SCENARIO_ID = EXAMPLE_SCENARIO_ID;
 
@@ -119,38 +126,23 @@ function isDiagnosticError(error: unknown): error is {
   );
 }
 
-type StoreState = {
-  tick: number;
-  state: GameState;
-  selection?: string;
-  view: ViewState;
-  recentEvents: readonly GameEvent[];
-};
-
-function createInitialEngineSnapshot(runtime: ScenarioRuntime): Pick<StoreState, 'state' | 'recentEvents'> {
-  const initialization = runtime.engine.initialize(runtime.createInitialState());
-  return {
-    state: initialization.state,
-    recentEvents: initialization.events.slice(-4),
-  };
-}
-
-function toSnapshot(store: StoreState, runtime: ScenarioRuntime): EngineSnapshot {
+function toSnapshot(store: PresentationStoreState, runtimeAdapter: EngineRuntimeAdapter, scenarioRuntime: ScenarioRuntime): EngineSnapshot {
   return projectEngineSnapshot({
     state: store.state,
     events: store.recentEvents,
     selection: store.selection,
     tick: store.tick,
     view: store.view,
-    getLegalActions: runtime.engine.getLegalActions.bind(runtime.engine),
-    teamColors: runtime.metadata.teamColors,
+    getLegalActions: (state) => runtimeAdapter.queryLegalActions(state),
+    teamColors: scenarioRuntime.metadata.teamColors,
   });
 }
 
 export function usePresentationStore(scenarioRuntime: ScenarioRuntime) {
-  const initialEngineSnapshot = useMemo(() => createInitialEngineSnapshot(scenarioRuntime), [scenarioRuntime]);
+  const runtimeAdapter = useMemo(() => createEngineRuntimeAdapter(scenarioRuntime), [scenarioRuntime]);
+  const initialEngineSnapshot = useMemo(() => createInitialStoreState(runtimeAdapter), [runtimeAdapter]);
 
-  const [store, setStore] = useState<StoreState>({
+  const [store, setStore] = useState<PresentationStoreState>({
     tick: 0,
     state: initialEngineSnapshot.state,
     selection: undefined,
@@ -158,7 +150,11 @@ export function usePresentationStore(scenarioRuntime: ScenarioRuntime) {
     recentEvents: initialEngineSnapshot.recentEvents,
   });
 
-  const snapshot = useMemo(() => toSnapshot(store, scenarioRuntime), [store, scenarioRuntime]);
+  const snapshot = useMemo(
+    () => toSnapshot(store, runtimeAdapter, scenarioRuntime),
+    [store, runtimeAdapter, scenarioRuntime],
+  );
+
 
   const actions = useMemo(
     () => ({
@@ -204,29 +200,10 @@ export function usePresentationStore(scenarioRuntime: ScenarioRuntime) {
         });
       },
       triggerAction: (action: Action) => {
-        setStore((prev) => {
-          if (prev.state.matchStatus === 'ENDED') {
-            return prev;
-          }
-
-          const activeActorId = getActiveActorId(prev.state);
-          const legalActions = scenarioRuntime.engine.getLegalActions(prev.state, activeActorId);
-          const isLegal = legalActions.some((candidate) => isSameAction(candidate, action));
-          if (!isLegal) {
-            return prev;
-          }
-
-          const result = scenarioRuntime.engine.step(prev.state, action);
-          return {
-            ...prev,
-            tick: prev.tick + 1,
-            state: result.state,
-            recentEvents: result.events.slice(-4),
-          };
-        });
+        setStore((prev) => reduceStoreForTriggeredAction(prev, action, runtimeAdapter));
       },
     }),
-    [scenarioRuntime, snapshot.entities],
+    [runtimeAdapter, snapshot.entities],
   );
 
   return { snapshot, actions };
