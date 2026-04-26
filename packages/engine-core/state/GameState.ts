@@ -49,14 +49,46 @@ export interface StateTransitionResult {
   readonly events: readonly GameEvent[];
 }
 
-export function appendEvents(state: GameState, events: readonly GameEvent[]): GameState {
-  if (events.length === 0) {
+export interface EventLogRetentionOptions {
+  readonly maxEventLogLength?: number;
+  readonly includeCompactionMarker?: boolean;
+}
+
+export function appendEvents(state: GameState, events: readonly GameEvent[], options: EventLogRetentionOptions = {}): GameState {
+  const maxEventLogLength = normalizeMaxEventLogLength(options.maxEventLogLength);
+  const mergedEventLog = [...state.eventLog, ...events];
+  if (events.length === 0 && (maxEventLogLength === undefined || mergedEventLog.length <= maxEventLogLength)) {
     return state;
   }
 
+  if (maxEventLogLength === undefined || mergedEventLog.length <= maxEventLogLength) {
+    return {
+      ...state,
+      eventLog: mergedEventLog,
+    };
+  }
+
+  const compactedCount = mergedEventLog.length - maxEventLogLength;
+  if (!options.includeCompactionMarker || maxEventLogLength === 0) {
+    return {
+      ...state,
+      eventLog: mergedEventLog.slice(-maxEventLogLength),
+    };
+  }
+
+  const retainedEvents = maxEventLogLength > 1 ? mergedEventLog.slice(-(maxEventLogLength - 1)) : [];
+  const latestEvent = mergedEventLog[mergedEventLog.length - 1];
+  const compactionMarker: GameEvent = {
+    kind: 'EVENT_LOG_COMPACTED',
+    compactedCount,
+    retainedCount: retainedEvents.length,
+    turn: latestEvent?.turn ?? state.turn,
+    round: latestEvent?.round ?? state.round,
+  };
+
   return {
     ...state,
-    eventLog: [...state.eventLog, ...events],
+    eventLog: [compactionMarker, ...retainedEvents],
   };
 }
 
@@ -349,9 +381,25 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
       };
     }
 
+    case 'EVENT_LOG_COMPACTED': {
+      return state;
+    }
+
     default:
       return state;
   }
+}
+
+function normalizeMaxEventLogLength(maxEventLogLength: number | undefined): number | undefined {
+  if (maxEventLogLength === undefined) {
+    return undefined;
+  }
+
+  if (!Number.isFinite(maxEventLogLength)) {
+    return undefined;
+  }
+
+  return Math.max(0, Math.floor(maxEventLogLength));
 }
 
 export function reduceEvents(state: GameState, events: readonly GameEvent[]): GameState {

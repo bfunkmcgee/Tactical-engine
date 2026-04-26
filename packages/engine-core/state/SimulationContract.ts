@@ -117,6 +117,13 @@ export interface SchedulerStateSnapshot {
 
 export type SimulationEvent =
   | {
+      readonly kind: 'EVENT_LOG_COMPACTED';
+      readonly compactedCount: number;
+      readonly retainedCount: number;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
       readonly kind: 'PHASE_ADVANCED';
       readonly from: Phase;
       readonly to: Phase;
