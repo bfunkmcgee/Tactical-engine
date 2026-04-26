@@ -66,7 +66,7 @@ test('ActionResolver does not mutate state for invalid actions', () => {
   assert.equal(result.events.length, 1);
   assert.equal(result.events[0]?.kind, 'ACTION_REJECTED');
   assert.equal(result.state.eventLog.at(-1)?.kind, 'ACTION_REJECTED');
-  assert.notStrictEqual(result.state, state);
+  assert.ok(result.state !== state);
 });
 
 test('ActionResolver emits rejection reason/details for invalid actions', () => {
