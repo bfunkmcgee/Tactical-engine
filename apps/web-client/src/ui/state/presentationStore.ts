@@ -3,7 +3,12 @@ import {
   type GameEvent,
   type Action,
 } from 'engine-core';
-import { type ScenarioRuntime, type ScenarioRuntimeRegistry } from 'rules-sdk';
+import {
+  type ScenarioRuntime,
+  type ScenarioRuntimeRegistry,
+  SCENARIO_RUNTIME_ERROR_CODES,
+  type ScenarioRuntimeErrorCode,
+} from 'rules-sdk';
 import {
   EXAMPLE_SCENARIO_ID,
   createExampleScenarioRuntimeRegistry,
@@ -35,6 +40,8 @@ export type PresentationStoreScenarioAdapter = {
       readonly field: string;
       readonly reason: string;
     }[];
+    readonly code?: ScenarioRuntimeErrorCode;
+    readonly scenarioId?: string;
     readonly cause?: string;
     readonly errorName?: string;
     readonly stackSnippet?: string;
@@ -60,6 +67,8 @@ export function createPresentationStoreScenarioAdapter(options?: {
           ? `Unable to initialize scenario '${scenarioId}'. ${safeErrorDetails.message}`
           : `Unable to initialize scenario '${scenarioId}'.`,
         diagnostics,
+        code: safeErrorDetails.code,
+        scenarioId: safeErrorDetails.scenarioId,
         cause: safeErrorDetails.cause,
         errorName: safeErrorDetails.errorName,
         stackSnippet: safeErrorDetails.stackSnippet,
@@ -70,15 +79,26 @@ export function createPresentationStoreScenarioAdapter(options?: {
 
 function toSafeErrorDetails(error: unknown): {
   readonly message?: string;
+  readonly code?: ScenarioRuntimeErrorCode;
+  readonly scenarioId?: string;
   readonly cause?: string;
   readonly errorName?: string;
   readonly stackSnippet?: string;
 } {
   if (error instanceof Error) {
     const stackSnippet = error.stack?.split('\n').slice(0, 3).join('\n');
+    const code = toScenarioRuntimeErrorCode((error as { code?: unknown }).code);
+    const cause = stringifyCause(error.cause);
+    const message = code === SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE
+      ? (cause ?? error.message ?? undefined)
+      : (error.message || undefined);
     return {
-      message: error.message || undefined,
-      cause: stringifyCause(error.cause),
+      message,
+      code,
+      scenarioId: typeof (error as { scenarioId?: unknown }).scenarioId === 'string'
+        ? (error as { scenarioId?: string }).scenarioId
+        : undefined,
+      cause,
       errorName: error.name || undefined,
       stackSnippet: stackSnippet || undefined,
     };
@@ -100,6 +120,13 @@ function toSafeErrorDetails(error: unknown): {
   }
 
   return {};
+}
+
+function toScenarioRuntimeErrorCode(code: unknown): ScenarioRuntimeErrorCode | undefined {
+  if (code === SCENARIO_RUNTIME_ERROR_CODES.UNKNOWN_SCENARIO_ID || code === SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE) {
+    return code;
+  }
+  return undefined;
 }
 
 function stringifyCause(cause: unknown): string | undefined {

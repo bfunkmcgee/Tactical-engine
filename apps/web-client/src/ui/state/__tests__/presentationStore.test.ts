@@ -9,6 +9,7 @@ import {
 import {
   createScenarioRuntime,
   createScenarioRuntimeRegistry,
+  SCENARIO_RUNTIME_ERROR_CODES,
   type ScenarioRuntime,
 } from 'rules-sdk';
 
@@ -57,6 +58,25 @@ test('adapter creates scenario runtime by scenario id via registry abstraction',
   assert.equal(adapter.scenarioRuntime.mapId, 'test-map');
 });
 
+
+test('adapter surfaces machine-readable code and scenarioId for unknown scenario ids', () => {
+  const registry = createScenarioRuntimeRegistry({});
+
+  const adapter = createPresentationStoreScenarioAdapter({
+    scenarioId: 'missing-scenario',
+    registry,
+  });
+
+  assert.equal(adapter.scenarioRuntime, undefined);
+  assert.equal(
+    adapter.initializationError?.message,
+    "Unable to initialize scenario 'missing-scenario'. Unknown scenario runtime: missing-scenario",
+  );
+  assert.equal(adapter.initializationError?.code, SCENARIO_RUNTIME_ERROR_CODES.UNKNOWN_SCENARIO_ID);
+  assert.equal(adapter.initializationError?.scenarioId, 'missing-scenario');
+  assert.equal(adapter.initializationError?.cause, undefined);
+});
+
 test('adapter surfaces scenario initialization diagnostics from runtime factory errors', () => {
   const registry = createScenarioRuntimeRegistry({
     [DEFAULT_SCENARIO_ID]: () => {
@@ -84,8 +104,11 @@ test('adapter surfaces scenario initialization diagnostics from runtime factory 
   );
   assert.equal(adapter.initializationError?.diagnostics?.[0]?.source, 'games/example-skirmish/content/units.json');
   assert.match(adapter.initializationError?.diagnostics?.[0]?.reason ?? '', /missing_ability/u);
-  assert.equal(adapter.initializationError?.errorName, 'Error');
-  assert.match(adapter.initializationError?.stackSnippet ?? '', /Error: bad scenario/u);
+  assert.equal(adapter.initializationError?.code, SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE);
+  assert.equal(adapter.initializationError?.scenarioId, DEFAULT_SCENARIO_ID);
+  assert.equal(adapter.initializationError?.cause, 'bad scenario');
+  assert.equal(adapter.initializationError?.errorName, 'ScenarioRuntimeFactoryError');
+  assert.match(adapter.initializationError?.stackSnippet ?? '', /ScenarioRuntimeFactoryError: Scenario runtime factory failed/u);
 });
 
 test('adapter preserves non-diagnostic error details from runtime factory errors', () => {
@@ -106,6 +129,32 @@ test('adapter preserves non-diagnostic error details from runtime factory errors
     `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'. runtime exploded`,
   );
   assert.equal(adapter.initializationError?.diagnostics, undefined);
-  assert.equal(adapter.initializationError?.errorName, 'TypeError');
-  assert.match(adapter.initializationError?.stackSnippet ?? '', /TypeError: runtime exploded/u);
+  assert.equal(adapter.initializationError?.code, SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE);
+  assert.equal(adapter.initializationError?.scenarioId, DEFAULT_SCENARIO_ID);
+  assert.equal(adapter.initializationError?.cause, 'runtime exploded');
+  assert.equal(adapter.initializationError?.errorName, 'ScenarioRuntimeFactoryError');
+  assert.match(adapter.initializationError?.stackSnippet ?? '', /ScenarioRuntimeFactoryError: Scenario runtime factory failed/u);
+});
+
+
+test('adapter keeps backward-compatible messaging for non-Error throws', () => {
+  const registry = createScenarioRuntimeRegistry({
+    [DEFAULT_SCENARIO_ID]: () => {
+      throw 'factory failed hard';
+    },
+  });
+
+  const adapter = createPresentationStoreScenarioAdapter({
+    scenarioId: DEFAULT_SCENARIO_ID,
+    registry,
+  });
+
+  assert.equal(adapter.scenarioRuntime, undefined);
+  assert.equal(
+    adapter.initializationError?.message,
+    `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'. Scenario runtime factory failed: ${DEFAULT_SCENARIO_ID}`,
+  );
+  assert.equal(adapter.initializationError?.code, SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE);
+  assert.equal(adapter.initializationError?.scenarioId, DEFAULT_SCENARIO_ID);
+  assert.equal(adapter.initializationError?.cause, 'factory failed hard');
 });
