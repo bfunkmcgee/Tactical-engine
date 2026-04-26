@@ -1,7 +1,13 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
-import { TeamTurnScheduler, TurnManager, UnitTurnScheduler } from '../TurnManager';
-import { createInitialState, getActiveActorId, type GameState } from '../../state/GameState';
+import {
+  createInitiativeOrderingPolicy,
+  createSeededTieBreakerOrderingPolicy,
+  TeamTurnScheduler,
+  TurnManager,
+  UnitTurnScheduler,
+} from '../TurnManager';
+import { createInitialState, getActiveActorId, toSchedulerStateSnapshot, type GameState } from '../../state/GameState';
 
 function createState(partial?: Partial<GameState>): GameState {
   return {
@@ -140,6 +146,55 @@ test('UnitTurnScheduler empty-alive transition is terminal and does not loop tur
   assert.equal(second.events.some((event) => event.kind === 'TURN_STARTED'), false);
   assert.equal(second.state.turn, first.state.turn);
   assert.equal(second.state.round, first.state.round);
+});
+
+test('UnitTurnScheduler initiative ordering policy prioritizes higher initiative first', () => {
+  const scheduler = new UnitTurnScheduler(
+    createInitiativeOrderingPolicy({
+      getInitiative: (unit) => unit.actionPoints ?? 0,
+    }),
+  );
+  const state = createState({
+    units: {
+      'u-a': { id: 'u-a', ownerId: 'A', hp: 5, maxHp: 5, actionPoints: 1, maxActionPoints: 5 },
+      'u-b': { id: 'u-b', ownerId: 'B', hp: 5, maxHp: 5, actionPoints: 4, maxActionPoints: 5 },
+      'u-c': { id: 'u-c', ownerId: 'A', hp: 5, maxHp: 5, actionPoints: 3, maxActionPoints: 5 },
+    },
+  });
+  const snapshot = toSchedulerStateSnapshot(state);
+  const first = scheduler.getInitialSlot(snapshot);
+  const second = scheduler.getNextSlot(snapshot, first);
+  const third = scheduler.getNextSlot(snapshot, second);
+
+  assert.equal(first.entityId, 'u-b');
+  assert.equal(second.entityId, 'u-c');
+  assert.equal(third.entityId, 'u-a');
+});
+
+test('UnitTurnScheduler seeded tie-breaker is deterministic for equal initiatives', () => {
+  const orderingPolicy = createInitiativeOrderingPolicy({
+    getInitiative: () => 2,
+    tieBreakerPolicy: createSeededTieBreakerOrderingPolicy(1337),
+  });
+  const scheduler = new UnitTurnScheduler(orderingPolicy);
+  const state = createState({
+    units: {
+      alpha: { id: 'alpha', ownerId: 'A', hp: 5, maxHp: 5 },
+      bravo: { id: 'bravo', ownerId: 'B', hp: 5, maxHp: 5 },
+      charlie: { id: 'charlie', ownerId: 'A', hp: 5, maxHp: 5 },
+    },
+  });
+  const snapshot = toSchedulerStateSnapshot(state);
+  const firstRun = [
+    scheduler.getInitialSlot(snapshot).entityId,
+    scheduler.getNextSlot(snapshot, { id: 'unit:alpha', entityId: 'alpha', teamId: 'A' }).entityId,
+  ];
+  const secondRun = [
+    scheduler.getInitialSlot(snapshot).entityId,
+    scheduler.getNextSlot(snapshot, { id: 'unit:alpha', entityId: 'alpha', teamId: 'A' }).entityId,
+  ];
+
+  assert.deepEqual(firstRun, secondRun);
 });
 
 test('TurnManager builds END_COMMAND flow with turn-start boundary', () => {
