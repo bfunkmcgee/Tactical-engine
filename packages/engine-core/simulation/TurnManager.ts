@@ -6,7 +6,14 @@ import {
   type GameState,
   type StateTransitionResult,
 } from '../state/GameState';
-import type { ActionType, ActivationSlot, Phase, SchedulerStateSnapshot, TurnScheduler } from '../state/SimulationContract';
+import type {
+  ActionType,
+  ActivationSlot,
+  Phase,
+  SchedulerStateSnapshot,
+  SimulationUnit,
+  TurnScheduler,
+} from '../state/SimulationContract';
 
 const DEFAULT_PHASE_ORDER: readonly Phase[] = ['START_TURN', 'COMMAND', 'RESOLUTION', 'END_TURN'];
 
@@ -33,6 +40,53 @@ const NO_ALIVE_UNIT_SLOT: ActivationSlot = {
   entityId: 'none-alive',
   label: 'No alive units',
 };
+
+export interface UnitSchedulerOrderingPolicy {
+  readonly id: string;
+  compare(left: SimulationUnit, right: SimulationUnit, state: SchedulerStateSnapshot): number;
+}
+
+export const LEXICAL_UNIT_ORDERING_POLICY: UnitSchedulerOrderingPolicy = {
+  id: 'lexical-id',
+  compare: (left, right) => left.id.localeCompare(right.id),
+};
+
+export function createSeededTieBreakerOrderingPolicy(
+  seed: number,
+  fallbackPolicy: UnitSchedulerOrderingPolicy = LEXICAL_UNIT_ORDERING_POLICY,
+): UnitSchedulerOrderingPolicy {
+  return {
+    id: `seeded-tiebreaker:${seed}:${fallbackPolicy.id}`,
+    compare: (left, right, state) => {
+      const fallbackOrder = fallbackPolicy.compare(left, right, state);
+      if (fallbackOrder !== 0) {
+        return fallbackOrder;
+      }
+
+      return hashWithSeed(left.id, seed) - hashWithSeed(right.id, seed);
+    },
+  };
+}
+
+interface InitiativeOrderingOptions {
+  readonly getInitiative: (unit: SimulationUnit) => number;
+  readonly tieBreakerPolicy?: UnitSchedulerOrderingPolicy;
+}
+
+export function createInitiativeOrderingPolicy(options: InitiativeOrderingOptions): UnitSchedulerOrderingPolicy {
+  const tieBreakerPolicy = options.tieBreakerPolicy ?? LEXICAL_UNIT_ORDERING_POLICY;
+  return {
+    id: `initiative:${tieBreakerPolicy.id}`,
+    compare: (left, right, state) => {
+      const initiativeDelta = options.getInitiative(right) - options.getInitiative(left);
+      if (initiativeDelta !== 0) {
+        return initiativeDelta;
+      }
+
+      return tieBreakerPolicy.compare(left, right, state);
+    },
+  };
+}
 
 export class TeamTurnScheduler implements TurnScheduler {
   public getInitialSlot(state: { readonly players: readonly string[] }): ActivationSlot {
@@ -70,36 +124,83 @@ export class TeamTurnScheduler implements TurnScheduler {
 }
 
 export class UnitTurnScheduler implements TurnScheduler {
+  private orderedAliveIdsCache:
+    | {
+        readonly key: string;
+        readonly slots: readonly ActivationSlot[];
+      }
+    | undefined;
+
+  public constructor(private readonly orderingPolicy: UnitSchedulerOrderingPolicy = LEXICAL_UNIT_ORDERING_POLICY) {}
+
   public getInitialSlot(state: SchedulerStateSnapshot): ActivationSlot {
-    const firstUnit = [...state.units]
-      .filter((unit) => unit.health > 0)
-      .sort((left, right) => left.id.localeCompare(right.id))[0];
-    if (!firstUnit) {
+    const orderedSlots = this.getOrderedAliveSlots(state);
+    const firstSlot = orderedSlots[0];
+    if (!firstSlot) {
       return { id: 'unit:missing', entityId: 'missing', label: 'Missing unit' };
     }
 
-    return { id: `unit:${firstUnit.id}`, entityId: firstUnit.id, teamId: firstUnit.teamId, label: `Unit ${firstUnit.id}` };
+    return firstSlot;
   }
 
   public getNextSlot(state: SchedulerStateSnapshot, currentSlot: ActivationSlot): ActivationSlot {
-    const aliveUnits = [...state.units].filter((unit) => unit.health > 0).sort((left, right) => left.id.localeCompare(right.id));
-    if (aliveUnits.length === 0) {
+    const orderedSlots = this.getOrderedAliveSlots(state);
+    if (orderedSlots.length === 0) {
       return NO_ALIVE_UNIT_SLOT;
     }
 
-    const currentIdx = aliveUnits.findIndex((unit) => unit.id === currentSlot.entityId);
-    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % aliveUnits.length;
-    const nextUnit = aliveUnits[nextIdx];
-    if (!nextUnit) {
+    const currentIdx = orderedSlots.findIndex((slot) => slot.entityId === currentSlot.entityId);
+    const nextIdx = currentIdx === -1 ? 0 : (currentIdx + 1) % orderedSlots.length;
+    const nextSlot = orderedSlots[nextIdx];
+    if (!nextSlot) {
       return currentSlot;
     }
 
-    return { id: `unit:${nextUnit.id}`, entityId: nextUnit.id, teamId: nextUnit.teamId, label: `Unit ${nextUnit.id}` };
+    return nextSlot;
   }
 
   public isSlotValid(state: SchedulerStateSnapshot, slot: ActivationSlot): boolean {
     return state.units.some((unit) => unit.id === slot.entityId && unit.health > 0);
   }
+
+  private getOrderedAliveSlots(state: SchedulerStateSnapshot): readonly ActivationSlot[] {
+    const key = this.buildOrderedAliveCacheKey(state);
+    if (this.orderedAliveIdsCache?.key === key) {
+      return this.orderedAliveIdsCache.slots;
+    }
+
+    const sorted = [...state.units]
+      .filter((unit) => unit.health > 0)
+      .sort((left, right) => this.orderingPolicy.compare(left, right, state));
+    const slots = sorted.map((unit) => ({
+      id: `unit:${unit.id}`,
+      entityId: unit.id,
+      teamId: unit.teamId,
+      label: `Unit ${unit.id}`,
+    }));
+    this.orderedAliveIdsCache = {
+      key,
+      slots,
+    };
+
+    return slots;
+  }
+
+  private buildOrderedAliveCacheKey(state: SchedulerStateSnapshot): string {
+    const unitSignature = state.units
+      .map((unit) => `${unit.id}|${unit.teamId}|${unit.health}|${unit.actionPoints ?? 0}|${unit.maxActionPoints ?? 0}`)
+      .join(',');
+    return `${this.orderingPolicy.id}|${state.turn}|${state.round}|${state.phase}|${unitSignature}`;
+  }
+}
+
+function hashWithSeed(text: string, seed: number): number {
+  let hash = seed | 0;
+  for (let idx = 0; idx < text.length; idx += 1) {
+    hash = Math.imul(hash ^ text.charCodeAt(idx), 16777619);
+  }
+
+  return hash >>> 0;
 }
 
 export class TurnManager {
