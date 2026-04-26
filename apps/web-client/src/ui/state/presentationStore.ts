@@ -7,6 +7,8 @@ import {
   type ScenarioRuntime,
   type ScenarioRuntimeRegistry,
   SCENARIO_RUNTIME_ERROR_CODES,
+  type ErrorCategory,
+  type ErrorMetadata,
   type ScenarioRuntimeErrorCode,
 } from 'rules-sdk';
 import {
@@ -41,6 +43,8 @@ export type PresentationStoreScenarioAdapter = {
       readonly reason: string;
     }[];
     readonly code?: ScenarioRuntimeErrorCode;
+    readonly category?: ErrorCategory;
+    readonly metadata?: ErrorMetadata;
     readonly scenarioId?: string;
     readonly cause?: string;
     readonly errorName?: string;
@@ -68,6 +72,8 @@ export function createPresentationStoreScenarioAdapter(options?: {
           : `Unable to initialize scenario '${scenarioId}'.`,
         diagnostics,
         code: safeErrorDetails.code,
+        category: safeErrorDetails.category,
+        metadata: safeErrorDetails.metadata,
         scenarioId: safeErrorDetails.scenarioId,
         cause: safeErrorDetails.cause,
         errorName: safeErrorDetails.errorName,
@@ -80,6 +86,8 @@ export function createPresentationStoreScenarioAdapter(options?: {
 function toSafeErrorDetails(error: unknown): {
   readonly message?: string;
   readonly code?: ScenarioRuntimeErrorCode;
+  readonly category?: ErrorCategory;
+  readonly metadata?: ErrorMetadata;
   readonly scenarioId?: string;
   readonly cause?: string;
   readonly errorName?: string;
@@ -88,6 +96,8 @@ function toSafeErrorDetails(error: unknown): {
   if (error instanceof Error) {
     const stackSnippet = error.stack?.split('\n').slice(0, 3).join('\n');
     const code = toScenarioRuntimeErrorCode((error as { code?: unknown }).code);
+    const category = toErrorCategory((error as { category?: unknown }).category);
+    const metadata = toErrorMetadata((error as { metadata?: unknown }).metadata);
     const cause = stringifyCause(error.cause);
     const message = code === SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE
       ? (cause ?? error.message ?? undefined)
@@ -95,6 +105,8 @@ function toSafeErrorDetails(error: unknown): {
     return {
       message,
       code,
+      category,
+      metadata,
       scenarioId: typeof (error as { scenarioId?: unknown }).scenarioId === 'string'
         ? (error as { scenarioId?: string }).scenarioId
         : undefined,
@@ -127,6 +139,26 @@ function toScenarioRuntimeErrorCode(code: unknown): ScenarioRuntimeErrorCode | u
     return code;
   }
   return undefined;
+}
+
+function toErrorCategory(category: unknown): ErrorCategory | undefined {
+  if (
+    category === 'validation' ||
+    category === 'legality' ||
+    category === 'runtime_init' ||
+    category === 'integrity' ||
+    category === 'internal_invariant'
+  ) {
+    return category;
+  }
+  return undefined;
+}
+
+function toErrorMetadata(metadata: unknown): ErrorMetadata | undefined {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return undefined;
+  }
+  return metadata as ErrorMetadata;
 }
 
 function stringifyCause(cause: unknown): string | undefined {

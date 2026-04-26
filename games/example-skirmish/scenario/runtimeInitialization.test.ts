@@ -9,6 +9,7 @@ import maps from '../content/maps.json';
 import tiles from '../content/tiles.json';
 import units from '../content/units.json';
 import type { AbilityDefinition, ContentPack, FactionDefinition, MapDefinition, TileDefinition, UnitDefinition } from 'rules-sdk';
+import { ERROR_CATEGORIES, ERROR_CODES } from 'rules-sdk';
 import { createExampleScenarioRuntime, ExampleScenarioInitializationError } from './runtime';
 
 function createPack(overrides: Partial<ContentPack> = {}): ContentPack {
@@ -46,6 +47,8 @@ test('createExampleScenarioRuntime returns diagnostics for malformed unit abilit
   const diagnostics = error.diagnostics;
   assert.ok(diagnostics.length > 0);
   assert.equal(diagnostics[0].source, 'games/example-skirmish/content/units.json');
+  assert.equal(diagnostics[0].category, ERROR_CATEGORIES.VALIDATION);
+  assert.equal(diagnostics[0].code, ERROR_CODES.EXAMPLE_SCENARIO_INVALID);
   assert.ok(diagnostics.some((diagnostic: { field: string }) => diagnostic.field.includes('units[0].abilityIds[1]')));
   assert.ok(
     diagnostics.some((diagnostic: { reason: string }) => diagnostic.reason.includes("missing ability 'missing_ability'")),
@@ -73,6 +76,7 @@ test('createExampleScenarioRuntime returns diagnostics for malformed map content
 
   const diagnostics = error.diagnostics;
   assert.ok(diagnostics.some((diagnostic: { source: string }) => diagnostic.source.endsWith('maps.json')));
+  assert.ok(diagnostics.every((diagnostic) => diagnostic.code === ERROR_CODES.EXAMPLE_SCENARIO_INVALID));
   assert.ok(diagnostics.some((diagnostic: { field: string }) => diagnostic.field.includes('maps[0].tiles[2]')));
   assert.ok(diagnostics.some((diagnostic: { reason: string }) => diagnostic.reason.includes("missing tile 'unknown_tile'")));
   assert.ok(diagnostics.some((diagnostic: { reason: string }) => diagnostic.reason.includes('width*height entries')));

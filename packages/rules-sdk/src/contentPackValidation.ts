@@ -6,6 +6,12 @@ import type {
   TileDefinition,
   UnitDefinition,
 } from './ContentPack';
+import {
+  ERROR_CATEGORIES,
+  ERROR_CODES,
+  RulesSdkError,
+  type DiagnosticPayload,
+} from './errors';
 
 const ABILITY_TARGETS = new Set<AbilityDefinition['target']>(['enemy', 'ally', 'self', 'tile']);
 const AREA_PATTERNS = new Set<NonNullable<AbilityDefinition['areaOfEffect']>['pattern']>([
@@ -26,17 +32,34 @@ export interface ValidationIssue {
   message: string;
 }
 
-export class ContentPackValidationError extends Error {
+export class ContentPackValidationError extends RulesSdkError {
   readonly issues: ValidationIssue[];
+  readonly diagnostics: readonly DiagnosticPayload[];
 
   constructor(sourceLabel: string, issues: ValidationIssue[]) {
     super(
       `Invalid content pack at ${sourceLabel} (${issues.length} issue${issues.length === 1 ? '' : 's'}):\n${issues
         .map((issue) => `- ${issue.path}: ${issue.message}`)
         .join('\n')}`,
+      {
+        category: ERROR_CATEGORIES.VALIDATION,
+        code: ERROR_CODES.CONTENT_PACK_INVALID,
+        metadata: {
+          sourceLabel,
+          issueCount: issues.length,
+        },
+      },
     );
-    this.name = 'ContentPackValidationError';
     this.issues = issues;
+    this.diagnostics = issues.map((issue) => ({
+      category: ERROR_CATEGORIES.VALIDATION,
+      code: ERROR_CODES.CONTENT_PACK_INVALID,
+      message: issue.message,
+      metadata: {
+        sourceLabel,
+        path: issue.path,
+      },
+    }));
   }
 }
 

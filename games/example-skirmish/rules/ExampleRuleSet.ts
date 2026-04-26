@@ -23,6 +23,9 @@ import {
   UnitId,
   VictoryResult,
   SimulationEvent,
+  ERROR_CATEGORIES,
+  ERROR_CODES,
+  RulesSdkError,
 } from 'rules-sdk';
 import { type DamageEvent, type TurnStartEvent, type UnitDefeatedEvent } from 'rules-sdk/hooks';
 
@@ -35,19 +38,28 @@ const EXAMPLE_CONTENT_SOURCES = {
 } as const;
 
 export type ExampleScenarioValidationDiagnostic = {
+  readonly category: typeof ERROR_CATEGORIES.VALIDATION;
+  readonly code: typeof ERROR_CODES.EXAMPLE_SCENARIO_INVALID;
   readonly source: string;
   readonly field: string;
   readonly reason: string;
+  readonly metadata: Readonly<Record<string, unknown>>;
 };
 
-export class ExampleScenarioValidationError extends Error {
+export class ExampleScenarioValidationError extends RulesSdkError {
   readonly diagnostics: readonly ExampleScenarioValidationDiagnostic[];
 
   constructor(diagnostics: readonly ExampleScenarioValidationDiagnostic[]) {
     super(
       `Example scenario content is invalid (${diagnostics.length} issue${diagnostics.length === 1 ? '' : 's'})`,
+      {
+        category: ERROR_CATEGORIES.VALIDATION,
+        code: ERROR_CODES.EXAMPLE_SCENARIO_INVALID,
+        metadata: {
+          issueCount: diagnostics.length,
+        },
+      },
     );
-    this.name = 'ExampleScenarioValidationError';
     this.diagnostics = diagnostics;
   }
 }
@@ -70,9 +82,15 @@ function toValidationDiagnostic(issue: ValidationIssue): ExampleScenarioValidati
     EXAMPLE_CONTENT_SOURCES[rootField as keyof typeof EXAMPLE_CONTENT_SOURCES] ??
     'games/example-skirmish/content/*.json';
   return {
+    category: ERROR_CATEGORIES.VALIDATION,
+    code: ERROR_CODES.EXAMPLE_SCENARIO_INVALID,
     source,
     field: issue.path,
     reason: issue.message,
+    metadata: {
+      source,
+      field: issue.path,
+    },
   };
 }
 
