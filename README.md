@@ -11,15 +11,23 @@ This repository is a TypeScript tactical-combat engine workspace with a playable
 - `apps/web-client` — React + Vite demo client that renders and drives the current engine loop.
 - `games/example-skirmish` — Example scenario content and rules wiring used for development and integration checks.
 
-## Stable vs experimental
+## Package compatibility expectations
 
-- `packages/engine-core`: **Stable for internal iteration** on turn/state/action fundamentals, but still evolving for broader external API guarantees.
-  - Default unit scheduler ordering policy is **lexical by unit id** (`UnitTurnScheduler`), which remains stable/deterministic; initiative-based and seeded tie-breaker policies are available as experimental configuration options.
-- `packages/engine-spatial`: **Stable for current grid-combat demo use cases**, with extension points still considered experimental.
-- `packages/engine-entities`: **Experimental**, with system boundaries and component contracts still being refined.
-- `packages/rules-sdk`: **Experimental**, intended as a shaping layer while canonical rules/content APIs settle.
-- `apps/web-client`: **Experimental demo app**, useful for validation but not hardened as a production client.
-- `games/example-skirmish`: **Experimental sample content**, intentionally scoped as a reference scenario rather than a full game.
+Public exports now carry JSDoc `@stability` annotations (`stable`, `beta`, `internal`) in package `index.ts` files.
+
+- `packages/engine-core`
+  - `stable`: state contracts and deterministic RNG primitives
+  - `beta`: simulation orchestration and action pipeline surfaces
+- `packages/engine-spatial`
+  - `stable`: grid adapter and line-of-sight surfaces
+  - `beta`: pathfinding and targeting helpers
+- `packages/engine-entities`
+  - `beta`: current entity store, components, and system exports
+- `packages/rules-sdk`
+  - `beta`: rules/content contracts and scenario runtime hooks
+  - `internal`: validation internals that may change without semver guarantees
+- `apps/web-client`: experimental demo app, not a production compatibility target.
+- `games/example-skirmish`: experimental reference content, intentionally non-stable.
 
 ## Setup
 
