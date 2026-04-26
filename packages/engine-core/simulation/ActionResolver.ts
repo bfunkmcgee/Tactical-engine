@@ -65,19 +65,7 @@ export class ActionResolver {
   public applyAction(state: GameState, action: Action): StateTransitionResult {
     const validation = this.validateActionWithReason(state, action);
     if (!validation.isValid) {
-      const rejectionEvent: GameEvent = {
-        kind: 'ACTION_REJECTED',
-        actorId: action.actorId,
-        actionType: action.type,
-        reason: validation.reason ?? 'ACTION_INVALID',
-        details: validation.details,
-        turn: state.turn,
-        round: state.round,
-      };
-      return {
-        state: appendEvents(reduceEvents(state, [rejectionEvent]), [rejectionEvent]),
-        events: [rejectionEvent],
-      };
+      return this.buildRejectedActionResult(state, action, validation);
     }
 
     const events = this.resolveActionEffects(state, action);
@@ -142,6 +130,27 @@ export class ActionResolver {
 
   public getLegalActions(state: GameState, actorId: string): Action[] {
     return this.legalActionGenerator.getLegalActions(state, actorId);
+  }
+
+  /**
+   * Canonical ACTION_REJECTED creator for invalid commands.
+   * Engine.step delegates rejection event construction to this method so
+   * reason/details metadata stays stable across all simulation entry points.
+   */
+  public buildRejectedActionResult(state: GameState, action: Action, validation: ActionValidationResult): StateTransitionResult {
+    const rejectionEvent: GameEvent = {
+      kind: 'ACTION_REJECTED',
+      actorId: action.actorId,
+      actionType: action.type,
+      reason: validation.reason ?? 'ACTION_INVALID',
+      details: validation.details,
+      turn: state.turn,
+      round: state.round,
+    };
+    return {
+      state: appendEvents(reduceEvents(state, [rejectionEvent]), [rejectionEvent]),
+      events: [rejectionEvent],
+    };
   }
 
   private validateAttackAction(state: GameState, action: Action, legalActions: Action[]): ActionValidationResult {

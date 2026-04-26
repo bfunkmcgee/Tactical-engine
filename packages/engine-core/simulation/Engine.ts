@@ -152,21 +152,11 @@ export class Engine {
       return { state, events: [] };
     }
 
+    // Rejection events are authored in ActionResolver only; Engine.step must
+    // reuse that path to guarantee exactly one ACTION_REJECTED shape/reason contract.
     const validation = this.actionResolver.validateActionWithReason(state, command);
     if (!validation.isValid) {
-      const rejectionEvent: GameEvent = {
-        kind: 'ACTION_REJECTED',
-        actorId: command.actorId,
-        actionType: command.type,
-        reason: validation.reason ?? 'ACTION_INVALID',
-        details: validation.details,
-        turn: state.turn,
-        round: state.round,
-      };
-      return {
-        state: appendEvents(reduceEvents(state, [rejectionEvent]), [rejectionEvent]),
-        events: [rejectionEvent],
-      };
+      return this.actionResolver.buildRejectedActionResult(state, command, validation);
     }
 
     const context: StrategyContext = { state, action: command };
