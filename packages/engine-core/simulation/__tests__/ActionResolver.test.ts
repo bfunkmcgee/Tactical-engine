@@ -111,6 +111,32 @@ test('ActionResolver includes actor and action metadata in rejection events', ()
   });
 });
 
+test('ActionResolver emits exactly one stable rejection event per invalid command', () => {
+  const state = createState();
+  const invalidAction: Action = {
+    id: 'attack:A:u-b',
+    actorId: 'A',
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: -5 },
+  };
+
+  const first = resolver.applyAction(state, invalidAction);
+  const second = resolver.applyAction(state, invalidAction);
+
+  assert.equal(first.events.length, 1);
+  assert.equal(second.events.length, 1);
+  assert.deepEqual(first.events[0], second.events[0]);
+  assert.deepEqual(first.events[0], {
+    kind: 'ACTION_REJECTED',
+    actorId: 'A',
+    actionType: 'ATTACK',
+    reason: 'ATTACK_AMOUNT_INVALID',
+    details: { amount: '-5' },
+    turn: 1,
+    round: 1,
+  });
+});
+
 test('ActionResolver emits canonical action event for valid actions', () => {
   const state = createState();
   const action: Action = {
