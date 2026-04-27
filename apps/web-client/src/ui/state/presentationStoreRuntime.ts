@@ -24,14 +24,14 @@ export function reduceStoreForTriggeredAction(
   runtimeAdapter: EngineRuntimeAdapter,
 ): PresentationStoreState {
   const result = runtimeAdapter.dispatchAction(prev.state, action);
-  if (!result.applied) {
+  if (!result.applied && result.events.length === 0) {
     return prev;
   }
 
   return {
     ...prev,
     tick: prev.tick + 1,
-    state: result.state,
+    state: result.applied ? result.state : prev.state,
     recentEvents: result.events.slice(-4),
   };
 }

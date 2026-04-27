@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 
-import { createInitialState } from 'engine-core';
+import { createInitialState, type GameEvent } from 'engine-core';
 import type { EngineRuntimeAdapter } from '../../../runtime/engineRuntimeAdapter';
 import {
   createInitialStoreState,
@@ -55,6 +55,49 @@ test('reduceStoreForTriggeredAction preserves store when adapter rejects action'
   const nextStore = reduceStoreForTriggeredAction(store, { id: 'a1', actorId: 'alpha', type: 'PASS' }, adapter);
 
   assert.equal(nextStore, store);
+});
+
+test('reduceStoreForTriggeredAction surfaces rejection events/reasons when adapter rejects action with feedback', () => {
+  const state = createInitialState(['alpha', 'beta'], []);
+  const store: PresentationStoreState = {
+    tick: 2,
+    state,
+    selection: undefined,
+    view: { zoom: 1, offsetX: 0, offsetY: 0 },
+    recentEvents: [{ kind: 'TURN_STARTED', actorId: 'alpha', turn: 1, round: 1 }],
+  };
+
+  const rejectionEvent: GameEvent = {
+    kind: 'ACTION_REJECTED' as const,
+    actorId: 'alpha',
+    actionType: 'ATTACK',
+    reason: 'ATTACK_AMOUNT_INVALID',
+    details: { amount: -2 },
+    turn: 1,
+    round: 1,
+  };
+
+  const adapter: EngineRuntimeAdapter = {
+    initialize: () => ({ state, events: [] }),
+    queryLegalActions: () => [],
+    dispatchAction: (incomingState) => ({
+      applied: false,
+      state: incomingState,
+      events: [rejectionEvent],
+    }),
+    subscribe: () => () => undefined,
+  };
+
+  const nextStore = reduceStoreForTriggeredAction(
+    store,
+    { id: 'a-reject', actorId: 'alpha', type: 'ATTACK', payload: { targetId: 'beta', amount: -2 } },
+    adapter,
+  );
+
+  assert.equal(nextStore === store, false);
+  assert.equal(nextStore.tick, 3);
+  assert.equal(nextStore.state, store.state);
+  assert.deepEqual(nextStore.recentEvents, [rejectionEvent]);
 });
 
 test('reduceStoreForTriggeredAction updates tick/state and truncates adapter events when action applies', () => {
