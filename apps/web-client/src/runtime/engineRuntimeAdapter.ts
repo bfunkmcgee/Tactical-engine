@@ -1,6 +1,5 @@
 import { type Action, type GameEvent, type GameState, getActiveActorId } from 'engine-core';
 import type { ScenarioRuntime } from 'rules-sdk';
-import { isSameAction } from '../ui/state/actionIdentity';
 
 export type EngineRuntimeUpdate = {
   readonly state: GameState;
@@ -40,17 +39,11 @@ export function createEngineRuntimeAdapter(scenarioRuntime: ScenarioRuntime): En
         return { applied: false, state, events: [] };
       }
 
-      const activeActorId = getActiveActorId(state);
-      const legalActions = scenarioRuntime.engine.getLegalActions(state, activeActorId);
-      const isLegal = legalActions.some((candidate) => isSameAction(candidate, action));
-      if (!isLegal) {
-        return { applied: false, state, events: [] };
-      }
-
       const update = scenarioRuntime.engine.step(state, action);
       emit(update);
+      const applied = update.events.some((event) => event.kind !== 'ACTION_REJECTED');
       return {
-        applied: true,
+        applied,
         state: update.state,
         events: update.events,
       };
