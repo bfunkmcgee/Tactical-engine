@@ -172,7 +172,7 @@ export class Engine {
     const context: StrategyContext = { state, action: command };
     const combatEvents = command.type === 'ATTACK' ? [] : this.combatStrategy.collectEvents(context);
     const initialEvents: GameEvent[] = [
-      ...this.actionResolver.resolveActionEffects(state, command),
+      ...this.actionResolver.resolveActionEffects(state, command, validation),
       ...this.spatialStrategy.collectEvents(context),
       ...this.movementStrategy.collectEvents(context),
       ...combatEvents,

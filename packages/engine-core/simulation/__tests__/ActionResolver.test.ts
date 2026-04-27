@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { ActionResolver } from '../ActionResolver';
 import { createInitialState, type Action, type GameState, type UnitState } from '../../state/GameState';
+import type { LegalActionGenerator } from '../LegalActionGenerator';
 
 function createState(partial?: Partial<GameState>): GameState {
   const units: UnitState[] = [
@@ -262,4 +263,34 @@ test('ActionResolver preserves resource/effect ordering around ACTION_APPLIED', 
 
   const result = resolver.applyAction(state, action);
   assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED', 'ACTION_POINTS_CHANGED', 'UNIT_DAMAGED']);
+});
+
+test('ActionResolver computes legal actions once per applyAction command', () => {
+  let legalActionCalls = 0;
+  const legalActionGenerator: LegalActionGenerator = {
+    getLegalActions: () => {
+      legalActionCalls += 1;
+      return [
+        {
+          id: 'attack:A:u-b',
+          actorId: 'A',
+          type: 'ATTACK',
+          payload: { targetId: 'u-b', amount: 1 },
+        },
+      ];
+    },
+  };
+  const countingResolver = new ActionResolver(legalActionGenerator);
+  const state = createState();
+  const action: Action = {
+    id: 'attack:A:u-b',
+    actorId: 'A',
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: 1 },
+  };
+
+  const result = countingResolver.applyAction(state, action);
+
+  assert.deepEqual(result.events.map((event) => event.kind), ['ACTION_APPLIED', 'UNIT_DAMAGED']);
+  assert.equal(legalActionCalls, 1);
 });
