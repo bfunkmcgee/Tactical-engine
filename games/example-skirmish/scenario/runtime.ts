@@ -33,8 +33,13 @@ export const EXAMPLE_SCENARIO_ID = 'example-skirmish';
 
 export const EXAMPLE_SCENARIO_METADATA: ScenarioRuntimeMetadata = {
   id: EXAMPLE_SCENARIO_ID,
+  version: '1.0.0',
   name: 'Example Skirmish',
   description: 'Starter 2-team skirmish scenario used by the web-client.',
+  compatibilityTags: {
+    saveFormat: 'example-save-v1',
+    rulesApiVersion: 'example-rules-api-v1',
+  },
   teamColors: {
     alliance: '#4f86f7',
     raiders: '#d65b4b',

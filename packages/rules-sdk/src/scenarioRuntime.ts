@@ -11,9 +11,11 @@ export { ERROR_CATEGORIES, ERROR_CODES, RulesSdkError, toStableDiagnostic, wrapU
 
 export interface ScenarioRuntimeMetadata {
   readonly id: string;
+  readonly version: string;
   readonly name: string;
   readonly description?: string;
   readonly teamColors?: Readonly<Record<string, string>>;
+  readonly compatibilityTags?: Readonly<Record<string, string>>;
 }
 
 export interface ScenarioRuntime {
@@ -27,6 +29,7 @@ export interface ScenarioRuntime {
 
 export interface ScenarioRuntimeRegistry {
   create(scenarioId: string): ScenarioRuntime;
+  listScenarios(): readonly ScenarioRuntimeMetadata[];
   listScenarioIds(): readonly string[];
 }
 
@@ -98,6 +101,11 @@ export function createScenarioRuntime(runtime: ScenarioRuntimeShape): ScenarioRu
 export function createScenarioRuntimeRegistry(
   factories: Readonly<Record<string, ScenarioRuntimeFactory>>,
 ): ScenarioRuntimeRegistry {
+  const listScenarios = (): readonly ScenarioRuntimeMetadata[] => Object.values(factories).map((factory) => {
+    const runtime = factory();
+    return runtime.metadata;
+  });
+
   return {
     create: (scenarioId: string): ScenarioRuntime => {
       const factory = factories[scenarioId];
@@ -111,6 +119,7 @@ export function createScenarioRuntimeRegistry(
         throw new ScenarioRuntimeFactoryError(scenarioId, error);
       }
     },
-    listScenarioIds: () => Object.keys(factories),
+    listScenarios,
+    listScenarioIds: () => listScenarios().map((scenario) => scenario.id),
   };
 }

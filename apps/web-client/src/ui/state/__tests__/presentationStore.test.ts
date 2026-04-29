@@ -23,6 +23,7 @@ test('adapter resolves default scenario runtime from package registry', () => {
   if (!adapter.scenarioRuntime) {
     throw new Error('Expected scenario runtime to be initialized');
   }
+  assert.ok(adapter.scenarios.length > 0);
   assert.equal(adapter.scenarioRuntime.metadata.id, DEFAULT_SCENARIO_ID);
   assert.ok(adapter.scenarioRuntime.players.length > 0);
 });
@@ -31,6 +32,7 @@ test('adapter creates scenario runtime by scenario id via registry abstraction',
   const fakeRuntime = createScenarioRuntime({
     metadata: {
       id: 'custom-scenario',
+      version: '1.0.0',
       name: 'Custom Scenario',
     },
     mapId: 'test-map',
@@ -58,6 +60,7 @@ test('adapter creates scenario runtime by scenario id via registry abstraction',
     throw new Error('Expected scenario runtime to be initialized');
   }
   assert.equal(adapter.scenarioRuntime.metadata.name, 'Custom Scenario');
+  assert.equal(adapter.scenarios[0]?.version, '1.0.0');
   assert.equal(adapter.scenarioRuntime.mapId, 'test-map');
 });
 
