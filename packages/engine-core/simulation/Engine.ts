@@ -238,11 +238,47 @@ export class Engine {
   }
 
   private appendToEventLog(state: GameState, events: readonly GameEvent[]): GameState {
-    return appendEvents(state, events, {
-      maxEventLogLength: this.maxEventLogLength,
-      includeCompactionMarker: this.emitEventLogCompactionMarker,
-    });
+    const nextState = appendEvents(state, events);
+    const maxEventLogLength = normalizeMaxEventLogLength(this.maxEventLogLength);
+    if (maxEventLogLength === undefined || nextState.eventLog.length <= maxEventLogLength) {
+      return nextState;
+    }
+
+    const compactedCount = nextState.eventLog.length - maxEventLogLength;
+    if (!this.emitEventLogCompactionMarker || maxEventLogLength === 0) {
+      return {
+        ...nextState,
+        eventLog: nextState.eventLog.slice(-maxEventLogLength),
+      };
+    }
+
+    const retainedEvents = maxEventLogLength > 1 ? nextState.eventLog.slice(-(maxEventLogLength - 1)) : [];
+    const latestEvent = nextState.eventLog[nextState.eventLog.length - 1];
+    const compactionMarker: GameEvent = {
+      kind: 'EVENT_LOG_COMPACTED',
+      compactedCount,
+      retainedCount: retainedEvents.length,
+      turn: latestEvent?.turn ?? nextState.turn,
+      round: latestEvent?.round ?? nextState.round,
+    };
+
+    return {
+      ...nextState,
+      eventLog: [compactionMarker, ...retainedEvents],
+    };
   }
+}
+
+function normalizeMaxEventLogLength(maxEventLogLength: number | undefined): number | undefined {
+  if (maxEventLogLength === undefined) {
+    return undefined;
+  }
+
+  if (!Number.isFinite(maxEventLogLength)) {
+    return undefined;
+  }
+
+  return Math.max(0, Math.floor(maxEventLogLength));
 }
 
 const defaultEngine = new Engine();

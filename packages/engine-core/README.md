@@ -14,6 +14,14 @@
 - Beta exports may change shape in minor releases while integration points settle.
 - Internal modules are not supported for direct consumption.
 
+## Event log retention boundary
+
+`Engine` is the single retention policy boundary for `eventLog`.
+
+- Configure retention via `EngineOptions.maxEventLogLength` and `EngineOptions.emitEventLogCompactionMarker`.
+- `state/appendEvents` is append-only and intentionally does not enforce retention.
+- Low-level simulation helpers (notably `ActionResolver.applyAction`) are orchestration utilities and may bypass retention; use `Engine.step`/`Engine.applyAction` in application flows when retention guarantees matter.
+
 ## Action pipeline extension point
 
 `simulation/ActionResolver.ts` orchestrates a staged pipeline under `simulation/action-pipeline/`.
@@ -25,4 +33,4 @@ When adding new action rules:
 - add resource consumption events to `action-pipeline/resourcePaymentStage.ts`;
 - add public action emission events to `action-pipeline/eventEmissionStage.ts`.
 
-Keep `ActionResolver.applyAction` and `validateActionWithReason` focused on orchestration so behavior stays easy to test and reason about.
+Keep `ActionResolver.applyAction` and `validateActionWithReason` focused on orchestration so behavior stays easy to test and reason about. Prefer `Engine.step` for retained production flows.

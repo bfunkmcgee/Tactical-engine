@@ -62,6 +62,10 @@ export class ActionResolver {
     this.ruleAdapter = ruleAdapter;
   }
 
+  /**
+   * @deprecated Use Engine.step/Engine.applyAction for production simulation flow.
+   * This low-level helper does not apply Engine event-log retention policy.
+   */
   public applyAction(state: GameState, action: Action): StateTransitionResult {
     const validation = this.validateActionWithReason(state, action);
     if (!validation.isValid) {

@@ -334,7 +334,7 @@ test('appendEvents keeps full event history when no retention limit is configure
   assert.deepEqual(next.eventLog, events);
 });
 
-test('appendEvents retains only the newest events when maxEventLogLength is set', () => {
+test('appendEvents is append-only and does not enforce retention policy', () => {
   const state = createInitialState(['A', 'B'], [{ id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10 }]);
   const allEvents: GameEvent[] = [
     { kind: 'TURN_STARTED', actorId: 'A', turn: 1, round: 1 },
@@ -342,19 +342,6 @@ test('appendEvents retains only the newest events when maxEventLogLength is set'
     { kind: 'PHASE_ADVANCED', from: 'COMMAND', to: 'RESOLUTION', turn: 1, round: 1 },
   ];
 
-  const next = appendEvents(state, allEvents, { maxEventLogLength: 2 });
-  assert.deepEqual(next.eventLog, allEvents.slice(-2));
-});
-
-test('appendEvents can emit compaction marker events while retaining bounded history', () => {
-  const state = createInitialState(['A', 'B'], [{ id: 'u-a', ownerId: 'A', hp: 10, maxHp: 10 }]);
-  const allEvents: GameEvent[] = [
-    { kind: 'TURN_STARTED', actorId: 'A', turn: 1, round: 1 },
-    { kind: 'PHASE_ADVANCED', from: 'START_TURN', to: 'COMMAND', turn: 1, round: 1 },
-    { kind: 'PHASE_ADVANCED', from: 'COMMAND', to: 'RESOLUTION', turn: 1, round: 1 },
-  ];
-
-  const next = appendEvents(state, allEvents, { maxEventLogLength: 2, includeCompactionMarker: true });
-  assert.equal(next.eventLog[0]?.kind, 'EVENT_LOG_COMPACTED');
-  assert.deepEqual(next.eventLog[1], allEvents[2]);
+  const next = appendEvents(state, allEvents);
+  assert.deepEqual(next.eventLog, allEvents);
 });
