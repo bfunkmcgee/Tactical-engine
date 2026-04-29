@@ -6,6 +6,7 @@ import type {
   TileDefinition,
   UnitDefinition,
 } from './ContentPack';
+import { ERROR_CATEGORIES, ERROR_CODES, RulesSdkError } from './errors';
 
 export type ById<T extends { id: string }> = Readonly<Record<string, Readonly<T>>>;
 
@@ -14,7 +15,14 @@ function toById<T extends { id: string }>(kind: string, items: readonly T[]): By
 
   const byId = items.reduce<Record<string, Readonly<T>>>((acc, item) => {
     if (seen.has(item.id)) {
-      throw new Error(`Duplicate ${kind} id detected in content pack: ${item.id}`);
+      throw new RulesSdkError(`Duplicate ${kind} id detected in content pack: ${item.id}`, {
+        code: ERROR_CODES.CONTENT_INDEX_DUPLICATE_ID,
+        category: ERROR_CATEGORIES.VALIDATION,
+        metadata: {
+          kind,
+          id: item.id,
+        },
+      });
     }
 
     seen.add(item.id);

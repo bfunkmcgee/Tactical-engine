@@ -1,4 +1,30 @@
 export type EntityId = string;
+export const ENTITY_STORE_ERROR_CODES = {
+  ENTITY_ALREADY_EXISTS: 'ENGINE_ENTITIES_LEGALITY_ENTITY_ALREADY_EXISTS',
+  ENTITY_UNKNOWN: 'ENGINE_ENTITIES_LEGALITY_ENTITY_UNKNOWN',
+} as const;
+
+export class EntityStoreError extends Error {
+  readonly code: (typeof ENTITY_STORE_ERROR_CODES)[keyof typeof ENTITY_STORE_ERROR_CODES];
+  readonly category = 'legality' as const;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  override readonly cause?: unknown;
+
+  constructor(
+    message: string,
+    details: {
+      readonly code: (typeof ENTITY_STORE_ERROR_CODES)[keyof typeof ENTITY_STORE_ERROR_CODES];
+      readonly metadata?: Readonly<Record<string, unknown>>;
+      readonly cause?: unknown;
+    },
+  ) {
+    super(message, details.cause === undefined ? undefined : { cause: details.cause });
+    this.name = 'EntityStoreError';
+    this.code = details.code;
+    this.metadata = details.metadata;
+    this.cause = details.cause;
+  }
+}
 
 export type ComponentData = object;
 export type CloneMode = 'deep' | 'shallow' | 'none';
@@ -46,7 +72,10 @@ export class EntityStore {
 
   createEntity(entityId: EntityId): EntityId {
     if (this.entities.has(entityId)) {
-      throw new Error(`Entity '${entityId}' already exists.`);
+      throw new EntityStoreError(`Entity '${entityId}' already exists.`, {
+        code: ENTITY_STORE_ERROR_CODES.ENTITY_ALREADY_EXISTS,
+        metadata: { entityId },
+      });
     }
 
     this.entities.add(entityId);
@@ -170,7 +199,10 @@ export class EntityStore {
 
   private assertEntity(entityId: EntityId): void {
     if (!this.entities.has(entityId)) {
-      throw new Error(`Unknown entity '${entityId}'. Create it first.`);
+      throw new EntityStoreError(`Unknown entity '${entityId}'. Create it first.`, {
+        code: ENTITY_STORE_ERROR_CODES.ENTITY_UNKNOWN,
+        metadata: { entityId },
+      });
     }
   }
 }
