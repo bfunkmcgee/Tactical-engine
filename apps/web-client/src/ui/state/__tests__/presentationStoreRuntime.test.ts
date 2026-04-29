@@ -2,40 +2,32 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 
 import { createInitialState, type GameEvent } from 'engine-core';
-import type { EngineRuntimeAdapter } from '../../../runtime/engineRuntimeAdapter';
+import type { RuntimeUpdate } from '../../../runtime/appRuntimeFacade';
 import {
+  applyInspectEvent,
   createInitialStoreState,
   reduceStoreForTriggeredAction,
   type PresentationStoreState,
 } from '../presentationStoreRuntime';
 
-test('createInitialStoreState keeps only last four initialization events from adapter', () => {
+test('createInitialStoreState uses runtime-shaped initial update', () => {
   const initialState = createInitialState(['alpha', 'beta'], []);
-  const adapter: EngineRuntimeAdapter = {
-    initialize: () => ({
-      state: initialState,
-      events: [
-        { kind: 'TURN_STARTED', actorId: 'alpha', turn: 1, round: 1 },
-        { kind: 'TURN_STARTED', actorId: 'beta', turn: 2, round: 1 },
-        { kind: 'TURN_STARTED', actorId: 'alpha', turn: 3, round: 1 },
-        { kind: 'TURN_STARTED', actorId: 'beta', turn: 4, round: 1 },
-        { kind: 'TURN_STARTED', actorId: 'alpha', turn: 5, round: 2 },
-      ],
-    }),
-    queryLegalActions: () => [],
-    dispatchAction: (state) => ({ applied: false, state, events: [] }),
-    subscribe: () => () => undefined,
+  const initialUpdate: RuntimeUpdate = {
+    applied: true,
+    state: initialState,
+    recentEvents: [
+      { kind: 'TURN_STARTED', actorId: 'beta', turn: 4, round: 2 },
+      { kind: 'TURN_STARTED', actorId: 'alpha', turn: 5, round: 3 },
+    ],
   };
 
-  const store = createInitialStoreState(adapter);
+  const store = createInitialStoreState(initialUpdate);
 
   assert.equal(store.state, initialState);
-  assert.equal(store.recentEvents.length, 4);
-  assert.equal((store.recentEvents[0] as { turn: number }).turn, 2);
-  assert.equal((store.recentEvents[3] as { turn: number }).turn, 5);
+  assert.deepEqual(store.recentEvents, initialUpdate.recentEvents);
 });
 
-test('reduceStoreForTriggeredAction preserves store when adapter rejects action', () => {
+test('reduceStoreForTriggeredAction preserves store when runtime update has no effects', () => {
   const state = createInitialState(['alpha', 'beta'], []);
   const store: PresentationStoreState = {
     tick: 4,
@@ -45,19 +37,18 @@ test('reduceStoreForTriggeredAction preserves store when adapter rejects action'
     recentEvents: [],
   };
 
-  const adapter: EngineRuntimeAdapter = {
-    initialize: () => ({ state, events: [] }),
-    queryLegalActions: () => [],
-    dispatchAction: (incomingState) => ({ applied: false, state: incomingState, events: [] }),
-    subscribe: () => () => undefined,
+  const update: RuntimeUpdate = {
+    applied: false,
+    state,
+    recentEvents: [],
   };
 
-  const nextStore = reduceStoreForTriggeredAction(store, { id: 'a1', actorId: 'alpha', type: 'PASS' }, adapter);
+  const nextStore = reduceStoreForTriggeredAction(store, update);
 
   assert.equal(nextStore, store);
 });
 
-test('reduceStoreForTriggeredAction surfaces rejection events/reasons when adapter rejects action with feedback', () => {
+test('reduceStoreForTriggeredAction surfaces rejection events/reasons from runtime update', () => {
   const state = createInitialState(['alpha', 'beta'], []);
   const store: PresentationStoreState = {
     tick: 2,
@@ -77,22 +68,11 @@ test('reduceStoreForTriggeredAction surfaces rejection events/reasons when adapt
     round: 1,
   };
 
-  const adapter: EngineRuntimeAdapter = {
-    initialize: () => ({ state, events: [] }),
-    queryLegalActions: () => [],
-    dispatchAction: (incomingState) => ({
-      applied: false,
-      state: incomingState,
-      events: [rejectionEvent],
-    }),
-    subscribe: () => () => undefined,
-  };
-
-  const nextStore = reduceStoreForTriggeredAction(
-    store,
-    { id: 'a-reject', actorId: 'alpha', type: 'ATTACK', payload: { targetId: 'beta', amount: -2 } },
-    adapter,
-  );
+  const nextStore = reduceStoreForTriggeredAction(store, {
+    applied: false,
+    state,
+    recentEvents: [rejectionEvent],
+  });
 
   assert.equal(nextStore === store, false);
   assert.equal(nextStore.tick, 3);
@@ -100,7 +80,7 @@ test('reduceStoreForTriggeredAction surfaces rejection events/reasons when adapt
   assert.deepEqual(nextStore.recentEvents, [rejectionEvent]);
 });
 
-test('reduceStoreForTriggeredAction updates tick/state and truncates adapter events when action applies', () => {
+test('reduceStoreForTriggeredAction updates tick/state from runtime update when action applies', () => {
   const initial = createInitialState(['alpha', 'beta'], []);
   const nextState = { ...initial, turn: initial.turn + 1 };
 
@@ -112,28 +92,39 @@ test('reduceStoreForTriggeredAction updates tick/state and truncates adapter eve
     recentEvents: [],
   };
 
-  const adapter: EngineRuntimeAdapter = {
-    initialize: () => ({ state: initial, events: [] }),
-    queryLegalActions: () => [],
-    dispatchAction: () => ({
-      applied: true,
-      state: nextState,
-      events: [
-        { kind: 'TURN_STARTED', actorId: 'alpha', turn: 1, round: 1 },
-        { kind: 'TURN_STARTED', actorId: 'beta', turn: 2, round: 1 },
-        { kind: 'TURN_STARTED', actorId: 'alpha', turn: 3, round: 1 },
-        { kind: 'TURN_STARTED', actorId: 'beta', turn: 4, round: 1 },
-        { kind: 'TURN_STARTED', actorId: 'alpha', turn: 5, round: 2 },
-      ],
-    }),
-    subscribe: () => () => undefined,
-  };
-
-  const nextStore = reduceStoreForTriggeredAction(store, { id: 'a2', actorId: 'alpha', type: 'PASS' }, adapter);
+  const nextStore = reduceStoreForTriggeredAction(store, {
+    applied: true,
+    state: nextState,
+    recentEvents: [
+      { kind: 'TURN_STARTED', actorId: 'beta', turn: 2, round: 1 },
+      { kind: 'TURN_STARTED', actorId: 'alpha', turn: 3, round: 1 },
+      { kind: 'TURN_STARTED', actorId: 'beta', turn: 4, round: 2 },
+      { kind: 'TURN_STARTED', actorId: 'alpha', turn: 5, round: 2 },
+    ],
+  });
 
   assert.equal(nextStore.tick, 2);
   assert.equal(nextStore.state, nextState);
   assert.equal(nextStore.recentEvents.length, 4);
-  assert.equal((nextStore.recentEvents[0] as { turn: number }).turn, 2);
-  assert.equal((nextStore.recentEvents[3] as { turn: number }).turn, 5);
+});
+
+test('applyInspectEvent appends integrity event and truncates to four entries', () => {
+  const state = createInitialState(['alpha', 'beta'], []);
+  const store: PresentationStoreState = {
+    tick: 0,
+    state,
+    selection: undefined,
+    view: { zoom: 1, offsetX: 0, offsetY: 0 },
+    recentEvents: [
+      { kind: 'TURN_STARTED', actorId: 'alpha', turn: 1, round: 1 },
+      { kind: 'TURN_STARTED', actorId: 'beta', turn: 2, round: 1 },
+      { kind: 'TURN_STARTED', actorId: 'alpha', turn: 3, round: 1 },
+      { kind: 'TURN_STARTED', actorId: 'beta', turn: 4, round: 1 },
+    ],
+  };
+
+  const nextStore = applyInspectEvent(store, 'Inspect @ (1, 2)');
+
+  assert.equal(nextStore.recentEvents.length, 4);
+  assert.equal(nextStore.recentEvents[3]?.kind, 'INTEGRITY_VIOLATION');
 });

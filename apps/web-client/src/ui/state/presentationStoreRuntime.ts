@@ -1,5 +1,5 @@
-import type { Action, GameEvent, GameState } from 'engine-core';
-import type { EngineRuntimeAdapter } from '../../runtime/engineRuntimeAdapter';
+import type { GameState } from 'engine-core';
+import type { RuntimeUpdate } from '../../runtime/appRuntimeFacade';
 import type { ViewState } from './engineSnapshot';
 
 export type PresentationStoreState = {
@@ -7,31 +7,44 @@ export type PresentationStoreState = {
   state: GameState;
   selection?: string;
   view: ViewState;
-  recentEvents: readonly GameEvent[];
+  recentEvents: RuntimeUpdate['recentEvents'];
 };
 
-export function createInitialStoreState(runtimeAdapter: EngineRuntimeAdapter): Pick<PresentationStoreState, 'state' | 'recentEvents'> {
-  const initialization = runtimeAdapter.initialize();
+export function createInitialStoreState(initialRuntimeUpdate: RuntimeUpdate): Pick<PresentationStoreState, 'state' | 'recentEvents'> {
   return {
-    state: initialization.state,
-    recentEvents: initialization.events.slice(-4),
+    state: initialRuntimeUpdate.state,
+    recentEvents: initialRuntimeUpdate.recentEvents,
   };
 }
 
 export function reduceStoreForTriggeredAction(
   prev: PresentationStoreState,
-  action: Action,
-  runtimeAdapter: EngineRuntimeAdapter,
+  runtimeUpdate: RuntimeUpdate,
 ): PresentationStoreState {
-  const result = runtimeAdapter.dispatchAction(prev.state, action);
-  if (!result.applied && result.events.length === 0) {
+  if (!runtimeUpdate.applied && runtimeUpdate.recentEvents.length === 0) {
     return prev;
   }
 
   return {
     ...prev,
     tick: prev.tick + 1,
-    state: result.applied ? result.state : prev.state,
-    recentEvents: result.events.slice(-4),
+    state: runtimeUpdate.applied ? runtimeUpdate.state : prev.state,
+    recentEvents: runtimeUpdate.recentEvents,
+  };
+}
+
+export function applyInspectEvent(prev: PresentationStoreState, inspectDetail: string): PresentationStoreState {
+  return {
+    ...prev,
+    recentEvents: [
+      ...prev.recentEvents,
+      {
+        kind: 'INTEGRITY_VIOLATION' as const,
+        invariant: 'ui.inspect',
+        detail: inspectDetail,
+        turn: prev.state.turn,
+        round: prev.state.round,
+      },
+    ].slice(-4),
   };
 }
