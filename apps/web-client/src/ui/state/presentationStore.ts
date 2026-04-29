@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  type GameEvent,
   type Action,
 } from 'engine-core';
 import {
@@ -20,10 +19,11 @@ import {
 } from 'game-scenarios/runtime-registry';
 import { projectEngineSnapshot, type EngineSnapshot, type ViewState } from './engineSnapshot';
 import {
-  createEngineRuntimeAdapter,
-  type EngineRuntimeAdapter,
-} from '../../runtime/engineRuntimeAdapter';
+  createAppRuntimeFacade,
+  type AppRuntimeFacade,
+} from '../../runtime/appRuntimeFacade';
 import {
+  applyInspectEvent,
   createInitialStoreState,
   reduceStoreForTriggeredAction,
   type PresentationStoreState,
@@ -171,21 +171,22 @@ function isDiagnosticError(error: unknown): error is {
   );
 }
 
-function toSnapshot(store: PresentationStoreState, runtimeAdapter: EngineRuntimeAdapter, scenarioRuntime: ScenarioRuntime): EngineSnapshot {
+function toSnapshot(store: PresentationStoreState, runtimeFacade: AppRuntimeFacade, scenarioRuntime: ScenarioRuntime): EngineSnapshot {
   return projectEngineSnapshot({
     state: store.state,
     events: store.recentEvents,
     selection: store.selection,
     tick: store.tick,
     view: store.view,
-    getLegalActions: (state) => runtimeAdapter.queryLegalActions(state),
+    getLegalActions: (state) => runtimeFacade.queryLegalActions(state),
     teamColors: scenarioRuntime.metadata.teamColors,
   });
 }
 
 export function usePresentationStore(scenarioRuntime: ScenarioRuntime) {
-  const runtimeAdapter = useMemo(() => createEngineRuntimeAdapter(scenarioRuntime), [scenarioRuntime]);
-  const initialEngineSnapshot = useMemo(() => createInitialStoreState(runtimeAdapter), [runtimeAdapter]);
+  const runtimeFacade = useMemo(() => createAppRuntimeFacade(scenarioRuntime), [scenarioRuntime]);
+  const initialRuntimeUpdate = useMemo(() => runtimeFacade.initialize(), [runtimeFacade]);
+  const initialEngineSnapshot = useMemo(() => createInitialStoreState(initialRuntimeUpdate), [initialRuntimeUpdate]);
 
   const [store, setStore] = useState<PresentationStoreState>({
     tick: 0,
@@ -196,8 +197,8 @@ export function usePresentationStore(scenarioRuntime: ScenarioRuntime) {
   });
 
   const snapshot = useMemo(
-    () => toSnapshot(store, runtimeAdapter, scenarioRuntime),
-    [store, runtimeAdapter, scenarioRuntime],
+    () => toSnapshot(store, runtimeFacade, scenarioRuntime),
+    [store, runtimeFacade, scenarioRuntime],
   );
 
 
@@ -229,26 +230,13 @@ export function usePresentationStore(scenarioRuntime: ScenarioRuntime) {
         }));
       },
       inspect: (x: number, y: number) => {
-        setStore((prev) => {
-          const inspectEvent: GameEvent = {
-            kind: 'INTEGRITY_VIOLATION',
-            invariant: 'ui.inspect',
-            detail: `Inspect @ (${Math.round(x)}, ${Math.round(y)})`,
-            turn: prev.state.turn,
-            round: prev.state.round,
-          };
-
-          return {
-            ...prev,
-            recentEvents: [...prev.recentEvents, inspectEvent].slice(-4),
-          };
-        });
+        setStore((prev) => applyInspectEvent(prev, `Inspect @ (${Math.round(x)}, ${Math.round(y)})`));
       },
       triggerAction: (action: Action) => {
-        setStore((prev) => reduceStoreForTriggeredAction(prev, action, runtimeAdapter));
+        setStore((prev) => reduceStoreForTriggeredAction(prev, runtimeFacade.triggerAction(prev.state, action)));
       },
     }),
-    [runtimeAdapter, snapshot.entities],
+    [runtimeFacade, snapshot.entities],
   );
 
   return { snapshot, actions };
