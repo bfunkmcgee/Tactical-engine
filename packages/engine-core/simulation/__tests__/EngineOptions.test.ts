@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { createInitialState, type Action, type GameState } from '../../state/GameState';
 import { Engine, type SimulationStrategy, type TurnStartStrategy } from '../Engine';
+import { ActionResolver } from '../ActionResolver';
 import type { LegalActionGenerator } from '../LegalActionGenerator';
 
 const baseState = (): GameState => ({
@@ -57,14 +58,14 @@ test('EngineOptions: partial dependency wiring uses provided movement and turn e
     turnEconomyStrategy,
   });
 
-  const move: Action = {
-    id: 'move:A:u-a:1:0',
+  const attack: Action = {
+    id: 'attack:A:u-b',
     actorId: 'A',
-    type: 'MOVE',
-    payload: { unitId: 'u-a', to: { x: 1, y: 0 } },
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: 1 },
   };
 
-  const moveResult = engine.step(baseState(), move);
+  const moveResult = engine.step(baseState(), attack);
   assert.equal(moveResult.events.some((event) => event.kind === 'ACTION_POINTS_CHANGED' && event.unitId === 'movement-marker'), true);
 
   const turnBoundaryResult = engine.step(moveResult.state, endCommand);
@@ -95,4 +96,39 @@ test('EngineOptions: legalActionGenerator is wired into default ActionResolver',
     legalActions.map((action) => action.id),
     ['custom-end:A', 'custom-pass:A'],
   );
+});
+
+test('EngineOptions: retention policy is enforced at Engine boundary', () => {
+  const engine = new Engine({ maxEventLogLength: 2, emitEventLogCompactionMarker: true });
+  const attack: Action = {
+    id: 'attack:A:u-b',
+    actorId: 'A',
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: 1 },
+  };
+
+  const first = engine.step(baseState(), attack);
+  const second = engine.step(first.state, endCommand);
+
+  assert.equal(second.state.eventLog.length, 2);
+  assert.equal(second.state.eventLog[0]?.kind, 'EVENT_LOG_COMPACTED');
+});
+
+test('EngineOptions: Engine.step does not route through ActionResolver.applyAction', () => {
+  class ThrowingApplyActionResolver extends ActionResolver {
+    public override applyAction(): never {
+      throw new Error('Engine.step should not call ActionResolver.applyAction');
+    }
+  }
+
+  const engine = new Engine({ actionResolver: new ThrowingApplyActionResolver() });
+  const attack: Action = {
+    id: 'attack:A:u-b',
+    actorId: 'A',
+    type: 'ATTACK',
+    payload: { targetId: 'u-b', amount: 1 },
+  };
+
+  const result = engine.step(baseState(), attack);
+  assert.equal(result.events.some((event) => event.kind === 'ACTION_APPLIED'), true);
 });
