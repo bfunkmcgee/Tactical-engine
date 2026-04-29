@@ -7,8 +7,9 @@ export default defineConfig({
   resolve: {
     alias: {
       'engine-core': fileURLToPath(new URL('../../packages/engine-core/index.ts', import.meta.url)),
-      'rules-sdk': fileURLToPath(new URL('../../packages/rules-sdk/index.ts', import.meta.url)),
-      'rules-sdk/hooks': fileURLToPath(new URL('../../packages/rules-sdk/hooks.ts', import.meta.url)),
+      'rules-sdk': fileURLToPath(new URL('../../packages/rules-sdk/src/index.ts', import.meta.url)),
+      'rules-sdk/hooks': fileURLToPath(new URL('../../packages/rules-sdk/src/hooks/index.ts', import.meta.url)),
+      'rules-sdk/scenario-runtime': fileURLToPath(new URL('../../packages/rules-sdk/src/scenarioRuntime.ts', import.meta.url)),
       'engine-spatial': fileURLToPath(new URL('../../packages/engine-spatial/index.ts', import.meta.url)),
       'engine-entities': fileURLToPath(new URL('../../packages/engine-entities/index.ts', import.meta.url)),
       'game-scenarios/runtime-registry': fileURLToPath(new URL('../../games/scenario-runtime-registry.ts', import.meta.url)),

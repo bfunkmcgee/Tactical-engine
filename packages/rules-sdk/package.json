@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.ts",
-    "./errors": "./errors.ts",
-    "./hooks": "./hooks.ts",
-    "./scenario-runtime": "./scenario-runtime.ts"
+    ".": "./src/index.ts",
+    "./errors": "./src/errors.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./scenario-runtime": "./src/scenarioRuntime.ts"
   }
 }
