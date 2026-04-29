@@ -51,54 +51,17 @@ export class Engine {
   private readonly maxEventLogLength?: number;
   private readonly emitEventLogCompactionMarker: boolean;
 
-  constructor(options?: EngineOptions);
-  constructor(
-    actionResolver?: ActionResolver,
-    turnManager?: TurnManager,
-    movementStrategy?: SimulationStrategy,
-    combatStrategy?: SimulationStrategy,
-    statusStrategy?: SimulationStrategy,
-    turnEconomyStrategy?: TurnStartStrategy,
-    spatialStrategy?: SimulationStrategy,
-    legalActionGenerator?: LegalActionGenerator,
-    matchOutcomeEvaluator?: MatchOutcomeEvaluator,
-  );
-  constructor(
-    actionResolverOrOptions: ActionResolver | EngineOptions | undefined = undefined,
-    turnManager = new TurnManager(),
-    movementStrategy: SimulationStrategy = NOOP_STRATEGY,
-    combatStrategy: SimulationStrategy = NOOP_STRATEGY,
-    statusStrategy: SimulationStrategy = NOOP_STRATEGY,
-    turnEconomyStrategy: TurnStartStrategy = NOOP_TURN_START_STRATEGY,
-    spatialStrategy: SimulationStrategy = NOOP_STRATEGY,
-    legalActionGenerator?: LegalActionGenerator,
-    matchOutcomeEvaluator?: MatchOutcomeEvaluator,
-  ) {
-    const normalizedOptions =
-      actionResolverOrOptions === undefined || actionResolverOrOptions instanceof ActionResolver
-        ? {
-            actionResolver: actionResolverOrOptions,
-            turnManager,
-            movementStrategy,
-            combatStrategy,
-            statusStrategy,
-            turnEconomyStrategy,
-            spatialStrategy,
-            legalActionGenerator,
-            matchOutcomeEvaluator,
-          }
-        : actionResolverOrOptions;
-
-    this.actionResolver = normalizedOptions.actionResolver ?? new ActionResolver(normalizedOptions.legalActionGenerator);
-    this.turnManager = normalizedOptions.turnManager ?? new TurnManager();
-    this.movementStrategy = normalizedOptions.movementStrategy ?? NOOP_STRATEGY;
-    this.combatStrategy = normalizedOptions.combatStrategy ?? NOOP_STRATEGY;
-    this.statusStrategy = normalizedOptions.statusStrategy ?? NOOP_STRATEGY;
-    this.turnEconomyStrategy = normalizedOptions.turnEconomyStrategy ?? NOOP_TURN_START_STRATEGY;
-    this.spatialStrategy = normalizedOptions.spatialStrategy ?? NOOP_STRATEGY;
-    this.matchOutcomeEvaluator = normalizedOptions.matchOutcomeEvaluator;
-    this.maxEventLogLength = normalizedOptions.maxEventLogLength;
-    this.emitEventLogCompactionMarker = Boolean(normalizedOptions.emitEventLogCompactionMarker);
+  constructor(options: EngineOptions = {}) {
+    this.actionResolver = options.actionResolver ?? new ActionResolver(options.legalActionGenerator);
+    this.turnManager = options.turnManager ?? new TurnManager();
+    this.movementStrategy = options.movementStrategy ?? NOOP_STRATEGY;
+    this.combatStrategy = options.combatStrategy ?? NOOP_STRATEGY;
+    this.statusStrategy = options.statusStrategy ?? NOOP_STRATEGY;
+    this.turnEconomyStrategy = options.turnEconomyStrategy ?? NOOP_TURN_START_STRATEGY;
+    this.spatialStrategy = options.spatialStrategy ?? NOOP_STRATEGY;
+    this.matchOutcomeEvaluator = options.matchOutcomeEvaluator;
+    this.maxEventLogLength = options.maxEventLogLength;
+    this.emitEventLogCompactionMarker = Boolean(options.emitEventLogCompactionMarker);
   }
 
   public applyAction(state: GameState, action: Action): StateTransitionResult {
