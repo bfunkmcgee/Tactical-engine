@@ -37,8 +37,11 @@ test('registry throws typed unknown scenario error with machine-readable fields'
 test('registry wraps factory failures with typed runtime error and preserves cause', () => {
   const rootCause = new TypeError('boom');
   const registry = createScenarioRuntimeRegistry({
-    scenarioA: () => {
-      throw rootCause;
+    scenarioA: {
+      metadata: { id: 'scenarioA', version: '1.0.0', name: 'Scenario A' },
+      create: () => {
+        throw rootCause;
+      },
     },
   });
   const error = captureThrown(() => registry.create('scenarioA'));
@@ -69,7 +72,10 @@ test('registry create remains backward-compatible for successful factories', () 
     createInitialState: () => createInitialState(['alpha', 'beta'], []),
   });
   const registry = createScenarioRuntimeRegistry({
-    ok: () => runtime,
+    ok: {
+      metadata: { id: 'ok', version: '1.0.0', name: 'OK' },
+      create: () => runtime,
+    },
   });
 
   assert.equal(registry.create('ok'), runtime);
@@ -79,8 +85,11 @@ test('registry create remains backward-compatible for successful factories', () 
 
 test('registry wraps non-Error throws without dropping context metadata', () => {
   const registry = createScenarioRuntimeRegistry({
-    scenarioB: () => {
-      throw { reason: 'raw object failure' };
+    scenarioB: {
+      metadata: { id: 'scenarioB', version: '1.0.0', name: 'Scenario B' },
+      create: () => {
+        throw { reason: 'raw object failure' };
+      },
     },
   });
   const error = captureThrown(() => registry.create('scenarioB'));
@@ -92,4 +101,22 @@ test('registry wraps non-Error throws without dropping context metadata', () => 
   assert.equal(error.metadata?.wrappedErrorType, 'object');
   assert.equal(error.metadata?.wrappedErrorSummary, '[Object]');
   assert.equal(error.scenarioId, 'scenarioB');
+});
+
+
+test('registry listing APIs use static metadata without invoking factories', () => {
+  let invocationCount = 0;
+  const registry = createScenarioRuntimeRegistry({
+    alpha: {
+      metadata: { id: 'alpha', version: '1.0.0', name: 'Alpha' },
+      create: () => {
+        invocationCount += 1;
+        throw new Error('factory should not be called during listing');
+      },
+    },
+  });
+
+  assert.deepEqual(registry.listScenarios(), [{ id: 'alpha', version: '1.0.0', name: 'Alpha' }]);
+  assert.deepEqual(registry.listScenarioIds(), ['alpha']);
+  assert.equal(invocationCount, 0);
 });

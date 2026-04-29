@@ -6,6 +6,7 @@ import {
   DEFAULT_SCENARIO_ID,
   createPresentationStoreScenarioAdapter,
 } from '../presentationStore';
+
 import {
   createScenarioRuntime,
   createScenarioRuntimeRegistry,
@@ -14,7 +15,16 @@ import {
   RulesSdkError,
   SCENARIO_RUNTIME_ERROR_CODES,
   type ScenarioRuntime,
+  type ScenarioRuntimeFactory,
+  type ScenarioRuntimeRegistryEntry,
 } from 'rules-sdk';
+
+function toRegistryEntry(factory: ScenarioRuntimeFactory, scenarioId = DEFAULT_SCENARIO_ID): ScenarioRuntimeRegistryEntry {
+  return {
+    metadata: { id: scenarioId, version: '1.0.0', name: scenarioId },
+    create: factory,
+  };
+}
 
 test('adapter resolves default scenario runtime from package registry', () => {
   const adapter = createPresentationStoreScenarioAdapter();
@@ -47,7 +57,7 @@ test('adapter creates scenario runtime by scenario id via registry abstraction',
   });
 
   const registry = createScenarioRuntimeRegistry({
-    'custom-scenario': (): ScenarioRuntime => fakeRuntime,
+    'custom-scenario': toRegistryEntry((): ScenarioRuntime => fakeRuntime, 'custom-scenario'),
   });
 
   const adapter = createPresentationStoreScenarioAdapter({
@@ -86,7 +96,7 @@ test('adapter surfaces machine-readable code and scenarioId for unknown scenario
 
 test('adapter surfaces scenario initialization diagnostics from runtime factory errors', () => {
   const registry = createScenarioRuntimeRegistry({
-    [DEFAULT_SCENARIO_ID]: () => {
+    [DEFAULT_SCENARIO_ID]: toRegistryEntry(() => {
       const error = new Error('bad scenario');
       (error as Error & { diagnostics?: unknown }).diagnostics = [
         {
@@ -96,7 +106,7 @@ test('adapter surfaces scenario initialization diagnostics from runtime factory 
         },
       ];
       throw error;
-    },
+    }),
   });
 
   const adapter = createPresentationStoreScenarioAdapter({
@@ -122,9 +132,9 @@ test('adapter surfaces scenario initialization diagnostics from runtime factory 
 
 test('adapter preserves non-diagnostic error details from runtime factory errors', () => {
   const registry = createScenarioRuntimeRegistry({
-    [DEFAULT_SCENARIO_ID]: () => {
+    [DEFAULT_SCENARIO_ID]: toRegistryEntry(() => {
       throw new TypeError('runtime exploded');
-    },
+    }),
   });
 
   const adapter = createPresentationStoreScenarioAdapter({
@@ -149,9 +159,9 @@ test('adapter preserves non-diagnostic error details from runtime factory errors
 
 test('adapter keeps backward-compatible messaging for non-Error throws', () => {
   const registry = createScenarioRuntimeRegistry({
-    [DEFAULT_SCENARIO_ID]: () => {
+    [DEFAULT_SCENARIO_ID]: toRegistryEntry(() => {
       throw 'factory failed hard';
-    },
+    }),
   });
 
   const adapter = createPresentationStoreScenarioAdapter({
@@ -172,9 +182,9 @@ test('adapter keeps backward-compatible messaging for non-Error throws', () => {
 
 test('adapter preserves wrapped metadata for unknown thrown objects', () => {
   const registry = createScenarioRuntimeRegistry({
-    [DEFAULT_SCENARIO_ID]: () => {
+    [DEFAULT_SCENARIO_ID]: toRegistryEntry(() => {
       throw { status: 500, reason: 'broken factory' };
-    },
+    }),
   });
 
   const adapter = createPresentationStoreScenarioAdapter({
@@ -193,19 +203,19 @@ test('adapter preserves wrapped metadata for unknown thrown objects', () => {
 
 test('adapter formats initialization messages consistently across throw shapes', () => {
   const errorRegistry = createScenarioRuntimeRegistry({
-    [DEFAULT_SCENARIO_ID]: () => {
+    [DEFAULT_SCENARIO_ID]: toRegistryEntry(() => {
       throw new Error('error throw');
-    },
+    }),
   });
   const stringRegistry = createScenarioRuntimeRegistry({
-    [DEFAULT_SCENARIO_ID]: () => {
+    [DEFAULT_SCENARIO_ID]: toRegistryEntry(() => {
       throw 'string throw';
-    },
+    }),
   });
   const objectRegistry = createScenarioRuntimeRegistry({
-    [DEFAULT_SCENARIO_ID]: () => {
+    [DEFAULT_SCENARIO_ID]: toRegistryEntry(() => {
       throw { message: 'object throw' };
-    },
+    }),
   });
 
   const errorAdapter = createPresentationStoreScenarioAdapter({ scenarioId: DEFAULT_SCENARIO_ID, registry: errorRegistry });
@@ -219,7 +229,7 @@ test('adapter formats initialization messages consistently across throw shapes',
 
 test('adapter preserves wrapped inner sdk error code metadata from scenario initialization failures', () => {
   const registry = createScenarioRuntimeRegistry({
-    [DEFAULT_SCENARIO_ID]: () => {
+    [DEFAULT_SCENARIO_ID]: toRegistryEntry(() => {
       throw new RulesSdkError('invalid example scenario', {
         category: ERROR_CATEGORIES.RUNTIME_INIT,
         code: ERROR_CODES.EXAMPLE_SCENARIO_INIT_FAILED,
@@ -227,7 +237,7 @@ test('adapter preserves wrapped inner sdk error code metadata from scenario init
           issueCount: 3,
         },
       });
-    },
+    }),
   });
 
   const adapter = createPresentationStoreScenarioAdapter({

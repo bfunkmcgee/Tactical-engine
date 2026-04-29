@@ -35,6 +35,11 @@ export interface ScenarioRuntimeRegistry {
 
 export type ScenarioRuntimeFactory = () => ScenarioRuntime;
 
+export interface ScenarioRuntimeRegistryEntry {
+  readonly metadata: ScenarioRuntimeMetadata;
+  readonly create: ScenarioRuntimeFactory;
+}
+
 export type ScenarioRuntimeShape = Omit<ScenarioRuntime, 'metadata'> & {
   readonly metadata: ScenarioRuntimeMetadata;
 };
@@ -99,27 +104,26 @@ export function createScenarioRuntime(runtime: ScenarioRuntimeShape): ScenarioRu
 }
 
 export function createScenarioRuntimeRegistry(
-  factories: Readonly<Record<string, ScenarioRuntimeFactory>>,
+  registry: Readonly<Record<string, ScenarioRuntimeRegistryEntry>>,
 ): ScenarioRuntimeRegistry {
-  const listScenarios = (): readonly ScenarioRuntimeMetadata[] => Object.values(factories).map((factory) => {
-    const runtime = factory();
-    return runtime.metadata;
-  });
+  const metadataByScenarioId: Readonly<Record<string, ScenarioRuntimeMetadata>> = Object.fromEntries(
+    Object.entries(registry).map(([scenarioId, descriptor]) => [scenarioId, descriptor.metadata]),
+  );
 
   return {
     create: (scenarioId: string): ScenarioRuntime => {
-      const factory = factories[scenarioId];
-      if (!factory) {
+      const descriptor = registry[scenarioId];
+      if (!descriptor) {
         throw new UnknownScenarioRuntimeError(scenarioId);
       }
 
       try {
-        return factory();
+        return descriptor.create();
       } catch (error) {
         throw new ScenarioRuntimeFactoryError(scenarioId, error);
       }
     },
-    listScenarios,
-    listScenarioIds: () => listScenarios().map((scenario) => scenario.id),
+    listScenarios: (): readonly ScenarioRuntimeMetadata[] => Object.values(metadataByScenarioId),
+    listScenarioIds: (): readonly string[] => Object.keys(metadataByScenarioId),
   };
 }
