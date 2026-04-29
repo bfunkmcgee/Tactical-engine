@@ -304,3 +304,50 @@ test('integration: engine.initialize leaves match in progress when startup state
   assert.equal(startup.state.winnerTeamId, undefined);
   assert.equal(startup.state.isDraw, false);
 });
+
+test('integration: initialize and step share identical lifecycle tail at turn boundary', () => {
+  const engine = new Engine({
+    turnEconomyStrategy: {
+      collectTurnStartEvents: (state) => [
+        {
+          kind: 'ACTION_POINTS_CHANGED',
+          unitId: 'economy-marker',
+          from: 0,
+          to: 1,
+          reason: 'TURN_START',
+          turn: state.turn,
+          round: state.round,
+        },
+      ],
+    },
+    matchOutcomeEvaluator: {
+      evaluate: () => ({ winnerTeamId: 'B', isDraw: false }),
+    },
+  });
+
+  const startup = engine.initialize(createInitialState(['A', 'B'], []));
+
+  const endCommandState = {
+    ...createInitialState(['A', 'B'], []),
+    phase: 'COMMAND' as const,
+    activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
+  };
+  const endCommand: Action = {
+    id: 'end-command:A',
+    actorId: 'A',
+    type: 'END_COMMAND',
+    payload: { reason: 'manual' },
+  };
+  const turnBoundary = engine.step(endCommandState, endCommand);
+
+  const lifecycleStartIndex = turnBoundary.events.findIndex((event) => event.kind === 'TURN_STARTED');
+  assert.ok(lifecycleStartIndex >= 0);
+  const lifecycleTailKinds = turnBoundary.events.slice(lifecycleStartIndex).map((event) => event.kind);
+
+  assert.deepEqual(startup.events.map((event) => event.kind), ['TURN_STARTED', 'ACTION_POINTS_CHANGED', 'PHASE_ADVANCED', 'MATCH_ENDED']);
+  assert.deepEqual(lifecycleTailKinds, startup.events.map((event) => event.kind));
+  assert.equal(startup.state.matchStatus, 'ENDED');
+  assert.equal(turnBoundary.state.matchStatus, 'ENDED');
+  assert.equal(startup.state.winnerTeamId, 'B');
+  assert.equal(turnBoundary.state.winnerTeamId, 'B');
+});
