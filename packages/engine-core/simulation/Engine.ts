@@ -1,7 +1,7 @@
 import { ActionResolver } from './ActionResolver';
 import type { LegalActionGenerator } from './LegalActionGenerator';
 import type { MatchOutcomeEvaluator } from './RuleAdapter';
-import { TurnManager } from './TurnManager';
+import { TurnManager, type PhaseFlowStep } from './TurnManager';
 import { appendEvents, reduceEvents, type Action, type GameEvent, type GameState, type StateTransitionResult } from '../state/GameState';
 
 export interface StrategyContext {
@@ -113,39 +113,23 @@ export class Engine {
     const orderedEvents: GameEvent[] = [];
     let nextState = state;
 
-    const applyEvents = (events: readonly GameEvent[]): void => {
+    const applyEvents = (events: readonly GameEvent[]): GameState => {
       if (events.length === 0) {
-        return;
+        return nextState;
       }
 
       orderedEvents.push(...events);
       nextState = this.appendToEventLog(reduceEvents(nextState, events), events);
+      return nextState;
     };
 
     const turnStartResult = this.turnManager.startTurnWithEvents(nextState);
-    applyEvents(turnStartResult.events);
+    nextState = applyEvents(turnStartResult.events);
 
-    const economyEvents = this.turnEconomyStrategy.collectTurnStartEvents(nextState);
-    applyEvents(economyEvents);
-
-    if (nextState.phase === 'START_TURN') {
-      const phaseAdvanceResult = this.turnManager.advancePhaseWithEvents(nextState);
-      applyEvents(phaseAdvanceResult.events);
-    }
-
-    if (nextState.matchStatus === 'IN_PROGRESS' && this.matchOutcomeEvaluator) {
-      const matchOutcome = this.matchOutcomeEvaluator.evaluate(nextState);
-      if (matchOutcome) {
-        const terminalEvent: GameEvent = {
-          kind: 'MATCH_ENDED',
-          winnerTeamId: matchOutcome.winnerTeamId,
-          isDraw: Boolean(matchOutcome.isDraw),
-          turn: nextState.turn,
-          round: nextState.round,
-        };
-        applyEvents([terminalEvent]);
-      }
-    }
+    nextState = this.applyLifecycleTransitions(nextState, orderedEvents, {
+      runTurnStartEconomy: true,
+      advanceFromStartTurn: true,
+    });
 
     return {
       state: nextState,
@@ -182,46 +166,21 @@ export class Engine {
     const orderedEvents: GameEvent[] = [];
     let nextState = state;
 
-    const applyEvents = (events: readonly GameEvent[]): void => {
+    const applyEvents = (events: readonly GameEvent[]): GameState => {
       if (events.length === 0) {
-        return;
+        return nextState;
       }
 
       orderedEvents.push(...events);
       nextState = this.appendToEventLog(reduceEvents(nextState, events), events);
+      return nextState;
     };
 
-    applyEvents(initialEvents);
+    nextState = applyEvents(initialEvents);
 
-    const transition = (): void => {
-      const result = this.turnManager.advancePhaseWithEvents(nextState);
-      orderedEvents.push(...result.events);
-      nextState = this.appendToEventLog(result.state, []);
-    };
-
-    for (const step of this.turnManager.getActionPhaseFlow(command.type, state.phase)) {
-      if (step.kind === 'ADVANCE_PHASE') {
-        transition();
-        continue;
-      }
-
-      const economyEvents = this.turnEconomyStrategy.collectTurnStartEvents(nextState);
-      applyEvents(economyEvents);
-    }
-
-    if (nextState.matchStatus === 'IN_PROGRESS' && this.matchOutcomeEvaluator) {
-      const matchOutcome = this.matchOutcomeEvaluator.evaluate(nextState);
-      if (matchOutcome) {
-        const terminalEvent: GameEvent = {
-          kind: 'MATCH_ENDED',
-          winnerTeamId: matchOutcome.winnerTeamId,
-          isDraw: Boolean(matchOutcome.isDraw),
-          turn: nextState.turn,
-          round: nextState.round,
-        };
-        applyEvents([terminalEvent]);
-      }
-    }
+    nextState = this.applyLifecycleTransitions(nextState, orderedEvents, {
+      phaseFlow: this.turnManager.getActionPhaseFlow(command.type, state.phase),
+    });
 
     return {
       state: nextState,
@@ -242,6 +201,70 @@ export class Engine {
       maxEventLogLength: this.maxEventLogLength,
       includeCompactionMarker: this.emitEventLogCompactionMarker,
     });
+  }
+
+  private applyLifecycleTransitions(
+    state: GameState,
+    orderedEvents: GameEvent[],
+    options: {
+      readonly phaseFlow?: readonly PhaseFlowStep[];
+      readonly runTurnStartEconomy?: boolean;
+      readonly advanceFromStartTurn?: boolean;
+    },
+  ): GameState {
+    let nextState = state;
+    const applyEvents = (events: readonly GameEvent[]): void => {
+      if (events.length === 0) {
+        return;
+      }
+
+      orderedEvents.push(...events);
+      nextState = this.appendToEventLog(reduceEvents(nextState, events), events);
+    };
+
+    const advancePhase = (): void => {
+      const result = this.turnManager.advancePhaseWithEvents(nextState);
+      orderedEvents.push(...result.events);
+      nextState = this.appendToEventLog(result.state, []);
+    };
+
+    const applyTurnStartEconomy = (): void => {
+      const economyEvents = this.turnEconomyStrategy.collectTurnStartEvents(nextState);
+      applyEvents(economyEvents);
+    };
+
+    if (options.runTurnStartEconomy) {
+      applyTurnStartEconomy();
+    }
+
+    for (const step of options.phaseFlow ?? []) {
+      if (step.kind === 'ADVANCE_PHASE') {
+        advancePhase();
+        continue;
+      }
+
+      applyTurnStartEconomy();
+    }
+
+    if (options.advanceFromStartTurn && nextState.phase === 'START_TURN') {
+      advancePhase();
+    }
+
+    if (nextState.matchStatus === 'IN_PROGRESS' && this.matchOutcomeEvaluator) {
+      const matchOutcome = this.matchOutcomeEvaluator.evaluate(nextState);
+      if (matchOutcome) {
+        const terminalEvent: GameEvent = {
+          kind: 'MATCH_ENDED',
+          winnerTeamId: matchOutcome.winnerTeamId,
+          isDraw: Boolean(matchOutcome.isDraw),
+          turn: nextState.turn,
+          round: nextState.round,
+        };
+        applyEvents([terminalEvent]);
+      }
+    }
+
+    return nextState;
   }
 }
 
