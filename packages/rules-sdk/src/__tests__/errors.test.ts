@@ -1,7 +1,32 @@
 import * as assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { ERROR_CATEGORIES, ERROR_CODES, RulesSdkError, wrapUnknownError } from '../errors';
+import { ERROR_CATEGORIES, ERROR_CODES, RulesSdkError, toStableDiagnostic, wrapUnknownError } from '../errors';
+
+test('toStableDiagnostic normalizes native Error values', () => {
+  const diagnostic = toStableDiagnostic(new TypeError('bad runtime'));
+
+  assert.equal(diagnostic.message, 'bad runtime');
+  assert.equal(diagnostic.code, undefined);
+  assert.equal(diagnostic.category, undefined);
+  assert.equal(diagnostic.cause, undefined);
+});
+
+test('toStableDiagnostic normalizes string throws', () => {
+  const diagnostic = toStableDiagnostic('boom');
+
+  assert.equal(diagnostic.message, 'boom');
+  assert.equal(diagnostic.cause, 'boom');
+  assert.equal(diagnostic.code, undefined);
+});
+
+test('toStableDiagnostic normalizes non-Error object throws', () => {
+  const diagnostic = toStableDiagnostic({ status: 500 });
+
+  assert.equal(diagnostic.message, undefined);
+  assert.equal(diagnostic.cause, 'A non-Error object was thrown.');
+  assert.equal(diagnostic.metadata, undefined);
+});
 
 test('wrapUnknownError keeps original details for non-Error thrown values', () => {
   const wrapped = wrapUnknownError({ reason: 'explode' }, {
