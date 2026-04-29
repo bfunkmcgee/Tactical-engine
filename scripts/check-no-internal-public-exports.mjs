@@ -7,7 +7,7 @@ const PACKAGE_INDEX_FILES = [
   'packages/engine-core/index.ts',
   'packages/engine-spatial/index.ts',
   'packages/engine-entities/index.ts',
-  'packages/rules-sdk/index.ts',
+  'packages/rules-sdk/src/index.ts',
 ];
 
 const EXPORT_PATTERN = /^export(?:\s+type)?\s+.+?\s+from\s+['\"]([^'\"]+)['\"];?$/gm;

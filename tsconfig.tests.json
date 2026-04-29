@@ -23,13 +23,13 @@
         "packages/engine-core/index.ts"
       ],
       "rules-sdk": [
-        "packages/rules-sdk/index.ts"
+        "packages/rules-sdk/src/index.ts"
       ],
       "rules-sdk/hooks": [
-        "packages/rules-sdk/hooks.ts"
+        "packages/rules-sdk/src/hooks/index.ts"
       ],
       "rules-sdk/scenario-runtime": [
-        "packages/rules-sdk/scenario-runtime.ts"
+        "packages/rules-sdk/src/scenarioRuntime.ts"
       ],
       "engine-spatial": [
         "packages/engine-spatial/index.ts"
