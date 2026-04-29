@@ -3,10 +3,11 @@ import {
   ERROR_CATEGORIES,
   ERROR_CODES,
   RulesSdkError,
+  toStableDiagnostic,
   wrapUnknownError,
   type ErrorMetadata,
 } from './errors';
-export { ERROR_CATEGORIES, ERROR_CODES, RulesSdkError, wrapUnknownError, type DiagnosticPayload, type ErrorCategory, type ErrorCode, type ErrorMetadata } from './errors';
+export { ERROR_CATEGORIES, ERROR_CODES, RulesSdkError, toStableDiagnostic, wrapUnknownError, type DiagnosticPayload, type ErrorCategory, type ErrorCode, type ErrorMetadata, type StableDiagnostic } from './errors';
 
 export interface ScenarioRuntimeMetadata {
   readonly id: string;
@@ -75,6 +76,7 @@ export class ScenarioRuntimeFactoryError extends ScenarioRuntimeError {
   readonly code = SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE;
 
   constructor(scenarioId: string, cause: unknown) {
+    const diagnostic = toStableDiagnostic(cause);
     const wrappedCause = wrapUnknownError(cause, {
       message: `Scenario runtime factory failed: ${scenarioId}`,
       category: ERROR_CATEGORIES.RUNTIME_INIT,
@@ -83,7 +85,7 @@ export class ScenarioRuntimeFactoryError extends ScenarioRuntimeError {
         scenarioId,
       },
     });
-    super(`Scenario runtime factory failed: ${scenarioId}`, scenarioId, ERROR_CATEGORIES.RUNTIME_INIT, cause, {
+    super(`Scenario runtime factory failed: ${scenarioId}`, scenarioId, ERROR_CATEGORIES.RUNTIME_INIT, diagnostic.cause ?? cause, {
       ...wrappedCause.metadata,
     });
   }

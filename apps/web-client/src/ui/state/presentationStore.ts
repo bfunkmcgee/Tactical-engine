@@ -7,6 +7,7 @@ import {
   type ScenarioRuntime,
   type ScenarioRuntimeRegistry,
   SCENARIO_RUNTIME_ERROR_CODES,
+  toStableDiagnostic,
   type ErrorCategory,
   type ErrorCode,
   type ErrorMetadata,
@@ -93,24 +94,23 @@ function toSafeErrorDetails(error: unknown): {
   readonly errorName?: string;
   readonly stackSnippet?: string;
 } {
+  const stableDiagnostic = toStableDiagnostic(error);
+
   if (error instanceof Error) {
     const stackSnippet = error.stack?.split('\n').slice(0, 3).join('\n');
-    const code = toErrorCode((error as { code?: unknown }).code);
-    const category = toErrorCategory((error as { category?: unknown }).category);
-    const metadata = toErrorMetadata((error as { metadata?: unknown }).metadata);
-    const cause = stringifyCause(error.cause);
-    const message = code === SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE
-      ? (cause ?? error.message ?? undefined)
-      : (error.message || undefined);
+    const message = stableDiagnostic.code === SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE
+      ? (stableDiagnostic.cause ?? stableDiagnostic.message)
+      : stableDiagnostic.message;
+
     return {
       message,
-      code,
-      category,
-      metadata,
+      code: stableDiagnostic.code,
+      category: stableDiagnostic.category,
+      metadata: stableDiagnostic.metadata,
       scenarioId: typeof (error as { scenarioId?: unknown }).scenarioId === 'string'
         ? (error as { scenarioId?: string }).scenarioId
         : undefined,
-      cause,
+      cause: stableDiagnostic.cause,
       errorName: error.name || undefined,
       stackSnippet: stackSnippet || undefined,
     };
@@ -118,60 +118,20 @@ function toSafeErrorDetails(error: unknown): {
 
   if (typeof error === 'string' && error.trim().length > 0) {
     return {
-      message: error,
-      cause: error,
+      message: stableDiagnostic.message,
+      cause: stableDiagnostic.cause,
       errorName: 'NonErrorThrown',
     };
   }
 
   if (error && typeof error === 'object') {
     return {
-      cause: 'A non-Error object was thrown.',
+      cause: stableDiagnostic.cause,
       errorName: (error as { constructor?: { name?: string } }).constructor?.name ?? 'NonErrorThrown',
     };
   }
 
   return {};
-}
-
-function toErrorCode(code: unknown): ErrorCode | undefined {
-  if (typeof code === 'string' && code.startsWith('RULES_SDK_')) {
-    return code as ErrorCode;
-  }
-  return undefined;
-}
-
-function toErrorCategory(category: unknown): ErrorCategory | undefined {
-  if (
-    category === 'validation' ||
-    category === 'legality' ||
-    category === 'runtime_init' ||
-    category === 'integrity' ||
-    category === 'internal_invariant'
-  ) {
-    return category;
-  }
-  return undefined;
-}
-
-function toErrorMetadata(metadata: unknown): ErrorMetadata | undefined {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
-    return undefined;
-  }
-  return metadata as ErrorMetadata;
-}
-
-function stringifyCause(cause: unknown): string | undefined {
-  if (cause instanceof Error) {
-    return cause.message || cause.name || undefined;
-  }
-  if (typeof cause === 'string') {
-    return cause;
-  }
-  if (typeof cause === 'number' || typeof cause === 'boolean' || typeof cause === 'bigint') {
-    return String(cause);
-  }
-  return undefined;
 }
 
 function isDiagnosticError(error: unknown): error is {

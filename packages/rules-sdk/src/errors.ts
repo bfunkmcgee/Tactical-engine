@@ -28,6 +28,14 @@ export type DiagnosticPayload = {
   readonly metadata?: ErrorMetadata;
 };
 
+export type StableDiagnostic = {
+  readonly message?: string;
+  readonly code?: ErrorCode;
+  readonly category?: ErrorCategory;
+  readonly metadata?: ErrorMetadata;
+  readonly cause?: string;
+};
+
 type AppErrorShape = {
   readonly category: ErrorCategory;
   readonly code: ErrorCode;
@@ -92,25 +100,74 @@ function toErrorCategory(category: unknown): ErrorCategory | undefined {
     : undefined;
 }
 
+function toErrorMetadata(metadata: unknown): ErrorMetadata | undefined {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return undefined;
+  }
+  return metadata as ErrorMetadata;
+}
+
+function stringifyCause(cause: unknown): string | undefined {
+  if (cause instanceof Error) {
+    return cause.message || cause.name || undefined;
+  }
+  if (typeof cause === 'string') {
+    return cause;
+  }
+  if (typeof cause === 'number' || typeof cause === 'boolean' || typeof cause === 'bigint') {
+    return String(cause);
+  }
+  return undefined;
+}
+
+export function toStableDiagnostic(error: unknown): StableDiagnostic {
+  if (error instanceof Error) {
+    const code = toErrorCode((error as { code?: unknown }).code);
+    const category = toErrorCategory((error as { category?: unknown }).category);
+    const metadata = toErrorMetadata((error as { metadata?: unknown }).metadata);
+    const cause = stringifyCause(error.cause);
+    const message = error.message || undefined;
+    return {
+      message,
+      code,
+      category,
+      metadata,
+      cause,
+    };
+  }
+
+  if (typeof error === 'string' && error.trim().length > 0) {
+    return {
+      message: error,
+      cause: error,
+    };
+  }
+
+  if (error && typeof error === 'object') {
+    return {
+      cause: 'A non-Error object was thrown.',
+    };
+  }
+
+  return {};
+}
+
 export function wrapUnknownError(error: unknown, details: Omit<AppErrorShape, 'cause'> & { readonly message: string }): RulesSdkError {
   if (error instanceof RulesSdkError) {
     return error;
   }
 
   const wrappedError = error instanceof Error ? (error as ErrorWithDetails) : undefined;
-  const wrappedMetadata =
-    wrappedError && wrappedError.metadata && typeof wrappedError.metadata === 'object' && !Array.isArray(wrappedError.metadata)
-      ? (wrappedError.metadata as Record<string, unknown>)
-      : undefined;
+  const wrappedDiagnostic = toStableDiagnostic(error);
 
   return new RulesSdkError(details.message, {
     category: details.category,
     code: details.code,
     metadata: {
       ...details.metadata,
-      wrappedErrorCode: toErrorCode(wrappedError?.code),
-      wrappedErrorCategory: toErrorCategory(wrappedError?.category),
-      wrappedErrorMetadata: wrappedMetadata,
+      wrappedErrorCode: wrappedDiagnostic.code,
+      wrappedErrorCategory: wrappedDiagnostic.category,
+      wrappedErrorMetadata: wrappedDiagnostic.metadata,
       wrappedErrorSummary: summarizeUnknown(error),
       wrappedErrorType:
         error === null

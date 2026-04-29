@@ -184,6 +184,34 @@ test('adapter preserves wrapped metadata for unknown thrown objects', () => {
   assert.equal(adapter.initializationError?.category, ERROR_CATEGORIES.RUNTIME_INIT);
   assert.equal(adapter.initializationError?.metadata?.wrappedErrorType, 'object');
   assert.equal(adapter.initializationError?.metadata?.wrappedErrorSummary, '[Object]');
+  assert.equal(adapter.initializationError?.cause, 'A non-Error object was thrown.');
+  assert.equal(adapter.initializationError?.errorName, 'ScenarioRuntimeFactoryError');
+});
+
+test('adapter formats initialization messages consistently across throw shapes', () => {
+  const errorRegistry = createScenarioRuntimeRegistry({
+    [DEFAULT_SCENARIO_ID]: () => {
+      throw new Error('error throw');
+    },
+  });
+  const stringRegistry = createScenarioRuntimeRegistry({
+    [DEFAULT_SCENARIO_ID]: () => {
+      throw 'string throw';
+    },
+  });
+  const objectRegistry = createScenarioRuntimeRegistry({
+    [DEFAULT_SCENARIO_ID]: () => {
+      throw { message: 'object throw' };
+    },
+  });
+
+  const errorAdapter = createPresentationStoreScenarioAdapter({ scenarioId: DEFAULT_SCENARIO_ID, registry: errorRegistry });
+  const stringAdapter = createPresentationStoreScenarioAdapter({ scenarioId: DEFAULT_SCENARIO_ID, registry: stringRegistry });
+  const objectAdapter = createPresentationStoreScenarioAdapter({ scenarioId: DEFAULT_SCENARIO_ID, registry: objectRegistry });
+
+  assert.equal(errorAdapter.initializationError?.message, `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'. error throw`);
+  assert.equal(stringAdapter.initializationError?.message, `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'. Scenario runtime factory failed: ${DEFAULT_SCENARIO_ID}`);
+  assert.equal(objectAdapter.initializationError?.message, `Unable to initialize scenario '${DEFAULT_SCENARIO_ID}'. A non-Error object was thrown.`);
 });
 
 test('adapter preserves wrapped inner sdk error code metadata from scenario initialization failures', () => {
