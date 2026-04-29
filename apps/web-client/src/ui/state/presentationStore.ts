@@ -5,6 +5,7 @@ import {
 } from 'engine-core';
 import {
   type ScenarioRuntime,
+  type ScenarioRuntimeMetadata,
   type ScenarioRuntimeRegistry,
   SCENARIO_RUNTIME_ERROR_CODES,
   toStableDiagnostic,
@@ -35,6 +36,7 @@ export const DEFAULT_SCENARIO_ID = EXAMPLE_SCENARIO_ID;
 const INITIAL_VIEW: ViewState = { zoom: 1, offsetX: 0, offsetY: 0 };
 
 export type PresentationStoreScenarioAdapter = {
+  readonly scenarios: readonly ScenarioRuntimeMetadata[];
   readonly scenarioRuntime?: ScenarioRuntime;
   readonly initializationError?: {
     readonly message: string;
@@ -59,14 +61,17 @@ export function createPresentationStoreScenarioAdapter(options?: {
 }): PresentationStoreScenarioAdapter {
   const scenarioId = options?.scenarioId ?? DEFAULT_SCENARIO_ID;
   const registry = options?.registry ?? createExampleScenarioRuntimeRegistry();
+  const scenarios = registry.listScenarios();
   try {
     return {
+      scenarios,
       scenarioRuntime: registry.create(scenarioId),
     };
   } catch (error) {
     const diagnostics = isDiagnosticError(error) ? error.diagnostics : undefined;
     const safeErrorDetails = toSafeErrorDetails(error);
     return {
+      scenarios,
       initializationError: {
         message: safeErrorDetails.message
           ? `Unable to initialize scenario '${scenarioId}'. ${safeErrorDetails.message}`

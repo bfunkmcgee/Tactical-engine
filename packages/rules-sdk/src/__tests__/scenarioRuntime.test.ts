@@ -57,7 +57,7 @@ test('registry wraps factory failures with typed runtime error and preserves cau
 
 test('registry create remains backward-compatible for successful factories', () => {
   const runtime = createScenarioRuntime({
-    metadata: { id: 'ok', name: 'OK' },
+    metadata: { id: 'ok', version: '1.0.0', name: 'OK' },
     mapId: 'map',
     players: ['alpha', 'beta'],
     units: [],
@@ -74,6 +74,7 @@ test('registry create remains backward-compatible for successful factories', () 
 
   assert.equal(registry.create('ok'), runtime);
   assert.deepEqual(registry.listScenarioIds(), ['ok']);
+  assert.deepEqual(registry.listScenarios(), [{ id: 'ok', version: '1.0.0', name: 'OK' }]);
 });
 
 test('registry wraps non-Error throws without dropping context metadata', () => {
