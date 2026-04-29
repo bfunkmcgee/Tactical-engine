@@ -8,6 +8,7 @@ import {
   type ScenarioRuntimeMetadata,
   type ScenarioRuntimeRegistry,
   SCENARIO_RUNTIME_ERROR_CODES,
+  isDomainErrorContract,
   toStableDiagnostic,
   type ErrorCategory,
   type ErrorCode,
@@ -100,6 +101,26 @@ function toSafeErrorDetails(error: unknown): {
   readonly stackSnippet?: string;
 } {
   const stableDiagnostic = toStableDiagnostic(error);
+
+  if (isDomainErrorContract(error)) {
+    const stackSnippet = error.stack?.split('\n').slice(0, 3).join('\n');
+    const message = stableDiagnostic.code === SCENARIO_RUNTIME_ERROR_CODES.FACTORY_FAILURE
+      ? (stableDiagnostic.cause ?? stableDiagnostic.message)
+      : stableDiagnostic.message;
+
+    return {
+      message,
+      code: stableDiagnostic.code,
+      category: stableDiagnostic.category,
+      metadata: stableDiagnostic.metadata,
+      scenarioId: typeof (error as { scenarioId?: unknown }).scenarioId === 'string'
+        ? (error as { scenarioId?: string }).scenarioId
+        : undefined,
+      cause: stableDiagnostic.cause,
+      errorName: error.name || undefined,
+      stackSnippet: stackSnippet || undefined,
+    };
+  }
 
   if (error instanceof Error) {
     const stackSnippet = error.stack?.split('\n').slice(0, 3).join('\n');

@@ -15,11 +15,21 @@ export const ERROR_CODES = {
   SCENARIO_RUNTIME_UNKNOWN_ID: 'RULES_SDK_LEGALITY_SCENARIO_RUNTIME_UNKNOWN_ID',
   SCENARIO_RUNTIME_FACTORY_FAILURE: 'RULES_SDK_RUNTIME_INIT_SCENARIO_RUNTIME_FACTORY_FAILURE',
   WRAPPED_UNKNOWN_ERROR: 'RULES_SDK_INTEGRITY_WRAPPED_UNKNOWN_ERROR',
+  CONTENT_INDEX_DUPLICATE_ID: 'RULES_SDK_VALIDATION_CONTENT_INDEX_DUPLICATE_ID',
+  ENTITY_ALREADY_EXISTS: 'ENGINE_ENTITIES_LEGALITY_ENTITY_ALREADY_EXISTS',
+  ENTITY_UNKNOWN: 'ENGINE_ENTITIES_LEGALITY_ENTITY_UNKNOWN',
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
 export type ErrorMetadata = Readonly<Record<string, unknown>>;
+
+export type DomainErrorContract = {
+  readonly code: string;
+  readonly category: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  readonly cause?: unknown;
+};
 
 export type DiagnosticPayload = {
   readonly category: ErrorCategory;
@@ -63,6 +73,14 @@ export class RulesSdkError extends Error {
     this.metadata = details.metadata;
     this.cause = details.cause;
   }
+}
+
+export function isDomainErrorContract(error: unknown): error is Error & DomainErrorContract {
+  return (
+    error instanceof Error &&
+    typeof (error as { code?: unknown }).code === 'string' &&
+    typeof (error as { category?: unknown }).category === 'string'
+  );
 }
 
 function summarizeUnknown(input: unknown): string | undefined {
