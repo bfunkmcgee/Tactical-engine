@@ -14,6 +14,14 @@
 - Beta exports may change shape in minor releases while integration points settle.
 - Internal modules are not supported for direct consumption.
 
+
+## Engine construction
+
+`Engine` now uses a single constructor pattern: `new Engine(options?)`.
+
+- Use the `EngineOptions` object to override dependencies and strategies.
+- Positional constructor arguments are no longer supported.
+
 ## Event log retention boundary
 
 `Engine` is the single retention policy boundary for `eventLog`.

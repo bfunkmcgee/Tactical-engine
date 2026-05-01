@@ -70,7 +70,7 @@ test('integration: engine + entity systems + rules sdk share one event contract'
   const entityStore = setupEntityStore();
   const combatStrategy = new EntityCombatStrategyAdapter(entityStore, new CombatSystem());
   const turnEconomyStrategy = new EntityTurnEconomyStrategyAdapter(new TurnEconomySystem());
-  const engine = new Engine(undefined, undefined, undefined, combatStrategy, undefined, turnEconomyStrategy);
+  const engine = new Engine({ combatStrategy, turnEconomyStrategy });
 
   const attack: Action = {
     id: 'attack:A:u-b',
@@ -110,19 +110,15 @@ test('integration: END_COMMAND uses turn-start boundary from phase policy', () =
 
   const observedPhases: string[] = [];
   const reorderedTurnManager = new TurnManager(undefined, ['START_TURN', 'RESOLUTION', 'COMMAND', 'END_TURN']);
-  const engine = new Engine(
-    undefined,
-    reorderedTurnManager,
-    undefined,
-    undefined,
-    undefined,
-    {
+  const engine = new Engine({
+    turnManager: reorderedTurnManager,
+    turnEconomyStrategy: {
       collectTurnStartEvents: (phaseState) => {
         observedPhases.push(phaseState.phase);
         return [];
       },
     },
-  );
+  });
 
   const endCommand: Action = {
     id: 'end-command:A',
@@ -143,13 +139,8 @@ test('integration: END_COMMAND returns events in exact reduction order', () => {
     activeActivationSlot: { id: 'team:A', entityId: 'A', teamId: 'A' },
   };
 
-  const engine = new Engine(
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    {
+  const engine = new Engine({
+    turnEconomyStrategy: {
       collectTurnStartEvents: (phaseState) => [
         {
           kind: 'ACTION_POINTS_CHANGED' as const,
@@ -162,7 +153,7 @@ test('integration: END_COMMAND returns events in exact reduction order', () => {
         },
       ],
     },
-  );
+  });
 
   const endCommand: Action = {
     id: 'end-command:A',

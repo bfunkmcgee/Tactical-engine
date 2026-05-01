@@ -5,6 +5,7 @@ This repository is a TypeScript tactical-combat engine workspace with a playable
 ## Repository structure
 
 - `packages/engine-core` — Turn flow, simulation contracts, state reducers, and action resolution primitives.
+  - Constructor pattern: instantiate `Engine` with `new Engine(options?)` (single `EngineOptions` object, no positional overloads).
 - `packages/engine-spatial` — Grid/pathfinding, line-of-sight, and target range utilities.
 - `packages/engine-entities` — ECS-style entity store, components, and gameplay systems adapters.
 - `packages/rules-sdk` — Rules/content interfaces and helpers used by game-specific rulesets.
