@@ -72,6 +72,8 @@ function toEventFeedback(event: GameEvent): string | null {
   switch (event.kind) {
     case 'UNIT_DAMAGED':
       return `${event.targetId} took ${event.amount} damage from ${event.sourceId}`;
+    case 'UNIT_HEALED':
+      return `${event.targetId} recovered ${event.amount} health`;
     case 'PHASE_ADVANCED':
       return `Phase: ${event.from} → ${event.to}`;
     case 'TURN_STARTED':

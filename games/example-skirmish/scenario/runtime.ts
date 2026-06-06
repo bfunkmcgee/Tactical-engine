@@ -5,6 +5,7 @@ import {
   RulesetLegalActionGenerator,
   RulesSdkActionAdapter,
   RulesSdkMatchOutcomeEvaluator,
+  RulesSdkTurnStartStrategy,
   type UnitState,
 } from 'engine-core';
 import {
@@ -153,6 +154,11 @@ export function createExampleScenarioRuntime(options: ExampleScenarioRuntimeOpti
     mapId: EXAMPLE_MAP_ID,
     defaultAttackAbilityId: 'rifle_shot',
   });
+  const turnStartStrategy = new RulesSdkTurnStartStrategy({
+    ruleSet,
+    content,
+    mapId: EXAMPLE_MAP_ID,
+  });
 
   const metadata = normalizeRuntimeMetadata(EXAMPLE_SCENARIO_METADATA);
   const players = normalizeRuntimePlayers(EXAMPLE_PLAYERS);
@@ -167,6 +173,7 @@ export function createExampleScenarioRuntime(options: ExampleScenarioRuntimeOpti
       engine: new Engine({
         actionResolver,
         matchOutcomeEvaluator,
+        turnEconomyStrategy: turnStartStrategy,
       }),
       createInitialState: () => createInitialState(players, units),
     }),
