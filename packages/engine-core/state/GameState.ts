@@ -152,6 +152,30 @@ export function reduceState(state: GameState, event: GameEvent): GameState {
       };
     }
 
+    case 'UNIT_HEALED': {
+      const target = state.units[event.targetId];
+      if (!target) {
+        return state;
+      }
+
+      const maxHp = target.maxHp ?? target.hp;
+      const healedHp = Math.min(maxHp, target.hp + Math.max(0, event.amount));
+      if (healedHp === target.hp) {
+        return state;
+      }
+
+      return {
+        ...state,
+        units: {
+          ...state.units,
+          [target.id]: {
+            ...target,
+            hp: healedHp,
+          },
+        },
+      };
+    }
+
     case 'UNIT_DEFEATED': {
       const target = state.units[event.targetId];
       if (!target) {

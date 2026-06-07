@@ -171,6 +171,15 @@ export type SimulationEvent =
       readonly round: number;
     }
   | {
+      readonly kind: 'UNIT_HEALED';
+      readonly sourceId?: TeamId;
+      readonly sourceUnitId?: UnitId;
+      readonly targetId: UnitId;
+      readonly amount: number;
+      readonly turn: number;
+      readonly round: number;
+    }
+  | {
       readonly kind: 'ABILITY_USED';
       readonly unitId: UnitId;
       readonly abilityId: string;

@@ -34,7 +34,7 @@ Public exports now carry JSDoc `@stability` annotations (`stable`, `beta`, `inte
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 22+
 - npm 10+
 
 ### Install dependencies
@@ -94,9 +94,13 @@ The web demo now boots from a single scenario runtime source (`games/example-ski
 - `games/example-skirmish` content + `ExampleRuleSet`
 - `apps/web-client` presentation store initialization
 
+### Turn-start lifecycle
+
+The example runtime wires `RulesSdkTurnStartStrategy` into the engine, so each turn-start boundary now advances the active team's economy through the `RuleSet.applyStatusEffects` hook: action points regenerate toward their max, ability cooldowns count down, and status effects tick (including `dot`/`regen` health changes and expiry). These are emitted as engine events (`ACTION_POINTS_CHANGED`, `COOLDOWN_TICKED`, `STATUS_TICKED`/`STATUS_REMOVED`, `UNIT_DAMAGED`/`UNIT_HEALED`) so replay stays event-sourced. Effects advance once per round, at the start of the owning team's turn.
+
 ### Still demo-only after this integration
 
-- Turn economy is still simplified and does not yet run full `RuleSet` turn lifecycle hooks for every phase transition.
+- Turn economy now runs the `RuleSet.applyStatusEffects` lifecycle at turn start, but other lifecycle hooks (`onTurnStart`, `onDamage`, `onUnitDefeated`, `toEngineEvents`) are still not invoked by `engine-core`.
 - `USE_ABILITY` and `USE_ITEM` outcomes still use engine-core demo event behavior unless explicitly represented as attacks.
 - Victory checks from `RuleSet.checkVictory` are not yet connected to a match-end state in `engine-core` or the web UI.
 - Scenario selection/loading is still hard-wired to the example skirmish runtime (no content browser or save/load flow yet).

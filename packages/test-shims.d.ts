@@ -22,3 +22,8 @@ declare module 'node:path' {
 declare const process: {
   cwd(): string;
 };
+
+// Side-effect style imports in the web client (e.g. `import './styles.css'`).
+// The app's own build resolves these via `vite/client`; the root test typecheck
+// (tsconfig.tests.json) needs an ambient declaration since it does not load vite types.
+declare module '*.css';
